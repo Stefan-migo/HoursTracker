@@ -6,9 +6,10 @@ import { createClient } from '@/lib/supabase/client-auth'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Clock } from 'lucide-react'
+import { Clock, UserPlus } from 'lucide-react'
 import { toast } from 'sonner'
 import { Spinner } from '@/components/ui/spinner'
+import Link from 'next/link'
 
 export function LoginForm() {
   const [error, setError] = useState<string | null>(null)
@@ -123,6 +124,14 @@ export function LoginForm() {
               )}
             </Button>
           </form>
+
+          <div className="text-center text-sm text-foreground-secondary">
+            ¿No tienes cuenta?{' '}
+            <Link href="/signup" className="text-accent hover:underline font-medium flex items-center justify-center gap-1">
+              <UserPlus className="h-3 w-3" />
+              Regístrate
+            </Link>
+          </div>
         </CardContent>
       </Card>
     </div>

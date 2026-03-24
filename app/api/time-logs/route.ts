@@ -165,8 +165,9 @@ export async function POST(request: Request) {
 
     if (error) {
       console.error('Insert error:', error)
+      console.error('Insert data:', { user_id: user.id, date, clock_in: clockInUTC, clock_out: clockOutUTC, is_manual, is_official })
       const { message, status } = handleSupabaseError(error)
-      return NextResponse.json({ error: message }, { status })
+      return NextResponse.json({ error: message, details: error.message }, { status })
     }
 
     return NextResponse.json(data)

@@ -128,36 +128,90 @@ export async function POST(request: Request) {
 function getEmailHtml(fullName: string, inviteUrl: string) {
   return `
 <!DOCTYPE html>
-<html>
+<html lang="es">
 <head>
-  <meta charset="utf-8">
+  <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Invitación - HoursTracker</title>
 </head>
-<body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background-color: #f5f5f5; margin: 0; padding: 20px;">
-  <div style="max-width: 600px; margin: 0 auto; background: white; border-radius: 12px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
-    <div style="background: linear-gradient(135deg, #4F46E5 0%, #7C3AED 100%); padding: 40px 30px; text-align: center;">
-      <h1 style="color: white; margin: 0; font-size: 28px;">HoursTracker</h1>
-      <p style="color: rgba(255,255,255,0.9); margin: 10px 0 0;">Gestión de horarios simplificada</p>
-    </div>
-    <div style="padding: 40px 30px;">
-      <h2 style="color: #1f2937; margin: 0 0 20px;">¡Bienvenido, ${fullName}!</h2>
-      <p style="color: #6b7280; line-height: 1.6; margin: 0 0 20px;">
-        Has sido invitado a unirte a <strong>HoursTracker</strong>. Para comenzar, crea tu contraseña haciendo clic en el siguiente botón:
-      </p>
-      <div style="text-align: center; margin: 30px 0;">
-        <a href="${inviteUrl}" style="display: inline-block; padding: 14px 32px; background: linear-gradient(135deg, #4F46E5 0%, #7C3AED 100%); color: white; text-decoration: none; border-radius: 8px; font-weight: 600; font-size: 16px;">
-          Crear mi contraseña
-        </a>
-      </div>
-      <p style="color: #9ca3af; font-size: 14px; text-align: center;">
-        Este enlace expira en <strong>7 días</strong>.
-      </p>
-      <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 30px 0;">
-      <p style="color: #9ca3af; font-size: 12px; text-align: center;">
-        Si no solicitaste esta invitación, puedes ignorar este correo.
-      </p>
-    </div>
-  </div>
+<body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background-color: #f5f5f7; color: #1d1d1f; line-height: 1.5;">
+  
+  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background-color: #f5f5f7;">
+    <tr>
+      <td align="center" style="padding: 48px 24px;">
+        
+        <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width: 480px; background-color: #ffffff; border-radius: 20px; box-shadow: 0 4px 24px rgba(0, 0, 0, 0.08); overflow: hidden;">
+          
+          <tr>
+            <td style="background: linear-gradient(135deg, #0a84ff 0%, #0066cc 100%); padding: 40px 32px; text-align: center;">
+              <h1 style="margin: 0; font-size: 24px; font-weight: 700; color: #ffffff; letter-spacing: -0.5px;">
+                HoursTracker
+              </h1>
+            </td>
+          </tr>
+          
+          <tr>
+            <td style="padding: 40px 32px;">
+              
+              <p style="margin: 0 0 24px 0; font-size: 16px; color: #1d1d1f;">
+                Hola <strong>${fullName}</strong>,
+              </p>
+              
+              <p style="margin: 0 0 24px 0; font-size: 15px; color: #424245; line-height: 1.6;">
+                Has sido invitado a unirte a <strong>HoursTracker</strong>. Para comenzar, crea tu contraseña haciendo clic en el siguiente botón:
+              </p>
+              
+              <div style="text-align: center; margin-bottom: 32px;">
+                <a href="${inviteUrl}" style="display: inline-block; background: linear-gradient(135deg, #0a84ff 0%, #0066cc 100%); color: #ffffff; text-decoration: none; font-size: 16px; font-weight: 600; padding: 16px 32px; border-radius: 12px; box-shadow: 0 4px 12px rgba(10, 132, 255, 0.4);">
+                  Crear mi contraseña
+                </a>
+              </div>
+              
+              <div style="background-color: #f5f5f7; border-radius: 12px; padding: 20px; margin-bottom: 24px;">
+                <p style="margin: 0 0 8px 0; font-size: 13px; color: #98989d; text-transform: uppercase; letter-spacing: 0.5px;">
+                  O copia y pega este enlace en tu navegador:
+                </p>
+                <p style="margin: 0; font-size: 13px; color: #0a84ff; word-break: break-all;">
+                  ${inviteUrl}
+                </p>
+              </div>
+              
+              <p style="margin: 0 0 16px 0; font-size: 14px; color: #98989d;">
+                Este enlace expira en <strong>7 días</strong>.
+              </p>
+              
+              <hr style="border: none; border-top: 1px solid #e5e5ea; margin: 24px 0;">
+              
+              <p style="margin: 0; font-size: 14px; color: #98989d;">
+                Si no solicitaste esta invitación, puedes ignorar este correo.
+              </p>
+              
+            </td>
+          </tr>
+          
+          <tr>
+            <td style="padding: 0 32px;">
+              <div style="height: 1px; background-color: #e5e5ea;"></div>
+            </td>
+          </tr>
+          
+          <tr>
+            <td style="padding: 32px; text-align: center;">
+              <p style="margin: 0 0 8px 0; font-size: 14px; color: #1d1d1f; font-weight: 600;">
+                HoursTracker
+              </p>
+              <p style="margin: 0; font-size: 13px; color: #98989d;">
+                Este es un correo automático. Por favor, no respondas a este mensaje.
+              </p>
+            </td>
+          </tr>
+          
+        </table>
+        
+      </td>
+    </tr>
+  </table>
+  
 </body>
 </html>
 `

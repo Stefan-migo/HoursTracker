@@ -16,11 +16,16 @@ const ADMIN_SIGNUP_CODE = process.env.NEXT_PUBLIC_ADMIN_SIGNUP_CODE || 'CHANGE_M
 export function SignupForm() {
   const [error, setError] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(false)
-  const [isAdmin, setIsAdmin] = useState(true)
-  const [adminCode, setAdminCode] = useState('')
   const [checkingAdmin, setCheckingAdmin] = useState(true)
   const [adminExists, setAdminExists] = useState(false)
   const [success, setSuccess] = useState(false)
+  
+  const [fullName, setFullName] = useState('')
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
+  const [confirmPassword, setConfirmPassword] = useState('')
+  const [adminCode, setAdminCode] = useState('')
+  
   const router = useRouter()
 
   useEffect(() => {
@@ -46,14 +51,10 @@ export function SignupForm() {
     checkAdminExists()
   }, [])
 
-  async function handleSubmit(formData: FormData) {
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault()
     setIsLoading(true)
     setError(null)
-
-    const fullName = formData.get('fullName') as string
-    const email = formData.get('email') as string
-    const password = formData.get('password') as string
-    const confirmPassword = formData.get('confirmPassword') as string
 
     if (!fullName || !email || !password) {
       setError('Todos los campos son requeridos')
@@ -103,6 +104,22 @@ export function SignupForm() {
     }
 
     if (data.user) {
+      const confirmUrl = `${window.location.origin}/auth/confirm?token=${encodeURIComponent(data.user.id)}&email=${encodeURIComponent(email)}`
+      
+      try {
+        await fetch('/api/auth/send-confirmation', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            email,
+            fullName,
+            confirmationUrl: confirmUrl,
+          }),
+        })
+      } catch (emailError) {
+        console.error('Error sending confirmation email via Resend:', emailError)
+      }
+      
       setSuccess(true)
       toast.success('¡Registro exitoso!', {
         description: 'Se ha enviado un correo de confirmación a tu email.',
@@ -209,7 +226,7 @@ export function SignupForm() {
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          <form action={handleSubmit} className="space-y-3">
+          <form onSubmit={handleSubmit} className="space-y-3">
             <div className="space-y-1.5">
               <label htmlFor="fullName" className="text-xs font-medium text-foreground-secondary">
                 Nombre completo
@@ -222,6 +239,8 @@ export function SignupForm() {
                 required
                 disabled={isLoading}
                 autoComplete="name"
+                value={fullName}
+                onChange={(e) => setFullName(e.target.value)}
               />
             </div>
 
@@ -237,6 +256,8 @@ export function SignupForm() {
                 required
                 disabled={isLoading}
                 autoComplete="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
               />
             </div>
 
@@ -252,6 +273,8 @@ export function SignupForm() {
                 required
                 disabled={isLoading}
                 autoComplete="new-password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
               />
             </div>
 
@@ -267,6 +290,8 @@ export function SignupForm() {
                 required
                 disabled={isLoading}
                 autoComplete="new-password"
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
               />
             </div>
 

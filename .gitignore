@@ -39,3 +39,10 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# sensitive files
+supabase.exe
+cookies.txt
+*.sql
+temp_*.tsx
+scripts/*.js

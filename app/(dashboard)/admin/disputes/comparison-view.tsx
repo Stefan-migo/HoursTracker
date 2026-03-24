@@ -103,7 +103,7 @@ export function ComparisonView({
           <CardHeader className="pb-3">
             <CardTitle className="text-sm font-medium flex items-center gap-2">
               <Clock className="h-4 w-4 text-success" />
-              Registro del Empleado
+              Registro del Trabajador
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
@@ -197,7 +197,7 @@ export function ComparisonView({
             disabled={isLoading}
           >
             <Mail className="h-4 w-4 mr-2" />
-            Contactar Empleado
+            Contactar Trabajador
           </Button>
           <Button
             variant="outline"

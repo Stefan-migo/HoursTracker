@@ -16,7 +16,7 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: "HoursTracker",
-  description: "Sistema de gestión de horas para empleados",
+  description: "Sistema de gestión de horas para trabajadores",
 };
 
 export default function RootLayout({

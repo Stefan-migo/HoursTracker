@@ -237,7 +237,7 @@ export default function AdminLogsPage() {
 
   function exportToExcel() {
     const dataToExport = filteredLogs.map(log => ({
-      Empleado: log.profiles.full_name,
+      Trabajador: log.profiles.full_name,
       Email: log.profiles.email,
       Fecha: formatDate(log.date),
       Entrada: log.clock_in ? formatTime(log.clock_in) : '-',
@@ -414,6 +414,16 @@ export default function AdminLogsPage() {
     })
   }, [])
 
+  const toggleAllEmployees = useCallback(() => {
+    setSelectedEmployees(prev => {
+      if (prev.size === employees.length) {
+        return new Set()
+      } else {
+        return new Set(employees.map(e => e.id))
+      }
+    })
+  }, [employees.length])
+
   async function handleDelete(log: TimeLogWithProfile) {
     if (!confirm(`Eliminar registro de ${log.profiles.full_name} del ${formatDate(log.date)}?`)) return
     setActionLoading(log.id)
@@ -476,7 +486,7 @@ export default function AdminLogsPage() {
                   <LogIn className="h-4 w-4 text-success" />
                   <div>
                     <div className="font-medium">Entrada Masiva</div>
-                    <div className="text-xs text-foreground-secondary">Registrar entrada para múltiples empleados</div>
+                    <div className="text-xs text-foreground-secondary">Registrar entrada para múltiples trabajadores</div>
                   </div>
                 </button>
                 <button
@@ -489,7 +499,7 @@ export default function AdminLogsPage() {
                   <LogOut className="h-4 w-4 text-error" />
                   <div>
                     <div className="font-medium">Salida Masiva</div>
-                    <div className="text-xs text-foreground-secondary">Registrar salida para múltiples empleados</div>
+                    <div className="text-xs text-foreground-secondary">Registrar salida para múltiples trabajadores</div>
                   </div>
                 </button>
                 <button
@@ -519,7 +529,7 @@ export default function AdminLogsPage() {
               <strong>Registros Oficiales:</strong> Estas viendo los registros oficiales del sistema.
             </p>
             <p className="text-sm text-foreground-secondary mt-1">
-              Los empleados gestionan sus registros personales separadamente en su panel.
+              Los trabajadores gestionan sus registros personales separadamente en su panel.
               Si notas discrepancias, revisa la seccion de Disputas.
             </p>
           </div>
@@ -559,7 +569,7 @@ export default function AdminLogsPage() {
                 onChange={(e) => setEmployeeFilter(e.target.value)}
                 className="h-9 px-3 border border-border rounded-md bg-background text-foreground text-sm"
               >
-                <option value="">Todos los empleados</option>
+                <option value="">Todos los trabajadores</option>
                 {employees.map((emp) => (
                   <option key={emp.id} value={emp.id}>
                     {emp.full_name}
@@ -570,7 +580,7 @@ export default function AdminLogsPage() {
               <div className="relative w-full sm:w-64">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-foreground-secondary" />
                 <Input
-                  placeholder="Buscar empleado..."
+                  placeholder="Buscar trabajador..."
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
                   className="pl-9"
@@ -634,7 +644,7 @@ export default function AdminLogsPage() {
                         )}
                       </button>
                     </th>
-                    <th className="text-left py-3 px-2 font-medium text-foreground-secondary">Empleado</th>
+                    <th className="text-left py-3 px-2 font-medium text-foreground-secondary">Trabajador</th>
                     <th className="text-left py-3 px-2 font-medium text-foreground-secondary">Fecha</th>
                     <th className="text-left py-3 px-2 font-medium text-foreground-secondary">Entrada</th>
                     <th className="text-left py-3 px-2 font-medium text-foreground-secondary">Salida</th>
@@ -729,14 +739,14 @@ export default function AdminLogsPage() {
 
             {!editingLog && (
               <div className="space-y-2">
-                <label className="text-sm font-medium text-foreground">Empleado</label>
+                <label className="text-sm font-medium text-foreground">Trabajador</label>
                 <select
                   value={formData.user_id}
                   onChange={(e) => setFormData({ ...formData, user_id: e.target.value })}
                   className="w-full h-10 px-3 border border-border rounded-md bg-background text-foreground"
                   required
                 >
-                  <option value="">Seleccionar empleado</option>
+                  <option value="">Seleccionar trabajador</option>
                   {employees.map((emp) => (
                     <option key={emp.id} value={emp.id}>
                       {emp.full_name} ({emp.email})
@@ -899,7 +909,7 @@ export default function AdminLogsPage() {
 
             <div className="space-y-2">
               <div className="flex items-center justify-between">
-                <label className="text-sm font-medium text-foreground">Seleccionar Empleados</label>
+                <label className="text-sm font-medium text-foreground">Seleccionar Trabajadores</label>
                 <Badge variant="secondary" className="bg-accent-muted text-accent">
                   {selectedEmployees.size} seleccionados
                 </Badge>
@@ -908,10 +918,24 @@ export default function AdminLogsPage() {
                 {employees.length === 0 ? (
                   <div className="p-4 text-center text-foreground-secondary">
                     <Loader2 className="h-5 w-5 animate-spin mx-auto mb-2" />
-                    Cargando empleados...
+                    Cargando trabajadores...
                   </div>
                 ) : (
                   <div className="divide-y divide-border">
+                    <label className="flex items-center gap-3 p-3 bg-background-secondary hover:bg-background-tertiary cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={selectedEmployees.size === employees.length && employees.length > 0}
+                        onChange={toggleAllEmployees}
+                        className="h-4 w-4 rounded border-border text-accent focus:ring-accent"
+                      />
+                      <div className="flex-1">
+                        <span className="font-medium text-foreground">Seleccionar todos</span>
+                        <span className="text-xs text-foreground-secondary ml-2">
+                          ({selectedEmployees.size} de {employees.length})
+                        </span>
+                      </div>
+                    </label>
                     {employees.map((emp) => (
                       <label
                         key={emp.id}

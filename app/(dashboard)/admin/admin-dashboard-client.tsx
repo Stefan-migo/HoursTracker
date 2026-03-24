@@ -138,7 +138,7 @@ export default function AdminDashboardClient() {
 
   async function handleBulkAction(action: 'clock_in' | 'clock_out' | 'activate' | 'deactivate') {
     if (selectedIds.size === 0) {
-      toast.warning('Selecciona al menos un empleado')
+      toast.warning('Selecciona al menos un trabajador')
       return
     }
 
@@ -166,7 +166,7 @@ export default function AdminDashboardClient() {
       if (failed > 0) {
         toast.error(`Error en ${failed} operaciones`)
       } else {
-        toast.success(`${selectedIds.size} empleado(s) ${action === 'activate' ? 'activado(s)' : 'desactivado(s)'}`)
+        toast.success(`${selectedIds.size} trabajador(es) ${action === 'activate' ? 'activado(s)' : 'desactivado(s)'}`)
       }
 
       setSelectedIds(new Set())
@@ -286,7 +286,7 @@ export default function AdminDashboardClient() {
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
           <div>
             <h1 className="text-2xl font-semibold text-foreground">Dashboard</h1>
-            <p className="text-sm text-foreground-secondary mt-1">Resumen y gestión de empleados</p>
+            <p className="text-sm text-foreground-secondary mt-1">Resumen y gestión de trabajadores</p>
           </div>
         </div>
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
@@ -313,7 +313,7 @@ export default function AdminDashboardClient() {
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
           <div>
             <h1 className="text-2xl font-semibold text-foreground">Dashboard</h1>
-            <p className="text-sm text-foreground-secondary mt-1">Resumen y gestión de empleados</p>
+            <p className="text-sm text-foreground-secondary mt-1">Resumen y gestión de trabajadores</p>
           </div>
           <Button variant="outline" size="sm" onClick={fetchData} disabled={isLoading}>
             <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
@@ -344,7 +344,7 @@ export default function AdminDashboardClient() {
 
               <Card className="transition-all hover:shadow-md">
                 <CardHeader className="flex flex-row items-center justify-between pb-2">
-                  <CardTitle className="text-sm font-medium text-foreground-secondary">Total Empleados</CardTitle>
+                  <CardTitle className="text-sm font-medium text-foreground-secondary">Total Trabajadores</CardTitle>
                   <Users className="h-4 w-4 text-foreground-secondary" />
                 </CardHeader>
                 <CardContent>
@@ -355,7 +355,7 @@ export default function AdminDashboardClient() {
 
               <Card className="transition-all hover:shadow-md">
                 <CardHeader className="flex flex-row items-center justify-between pb-2">
-                  <CardTitle className="text-sm font-medium text-foreground-secondary">Empleados Activos</CardTitle>
+                  <CardTitle className="text-sm font-medium text-foreground-secondary">Trabajadores Activos</CardTitle>
                   <TrendingUp className="h-4 w-4 text-success" />
                 </CardHeader>
                 <CardContent>
@@ -468,7 +468,7 @@ export default function AdminDashboardClient() {
               </div>
             ) : filteredEmployees.length === 0 ? (
               <div className="text-center py-12 text-foreground-secondary">
-                No hay empleados que coincidan con los filtros
+                No hay trabajadores que coincidan con los filtros
               </div>
             ) : (
               <div className="overflow-x-auto">
@@ -481,7 +481,7 @@ export default function AdminDashboardClient() {
                           onCheckedChange={toggleSelectAll}
                         />
                       </th>
-                      <th className="text-left py-3 px-4 font-medium text-sm text-foreground-secondary">Empleado</th>
+                      <th className="text-left py-3 px-4 font-medium text-sm text-foreground-secondary">Trabajador</th>
                       <th className="text-left py-3 px-4 font-medium text-sm text-foreground-secondary hidden sm:table-cell">Email</th>
                       <th className="text-left py-3 px-4 font-medium text-sm text-foreground-secondary">Estado</th>
                       <th className="text-center py-3 px-4 font-medium text-sm text-foreground-secondary">Acciones</th>
@@ -540,11 +540,11 @@ export default function AdminDashboardClient() {
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <a
-            href="/admin/employees"
+            href="/admin/workers"
             className="group p-4 border border-border rounded-lg hover:bg-background-secondary transition-colors"
           >
             <Users className="h-6 w-6 mb-2 text-accent" />
-            <p className="font-medium text-foreground group-hover:text-accent transition-colors">Gestionar Empleados</p>
+                  <p className="font-medium text-foreground group-hover:text-accent transition-colors">Gestionar Trabajadores</p>
             <p className="text-sm text-foreground-secondary">Agregar, editar, activar/desactivar</p>
           </a>
           <a
@@ -571,7 +571,7 @@ export default function AdminDashboardClient() {
                   </Button>
                 </div>
                 <p className="text-sm text-foreground-secondary">
-                  Empleado: <strong className="text-foreground">{modal.employee.full_name}</strong>
+                  Trabajador: <strong className="text-foreground">{modal.employee.full_name}</strong>
                 </p>
               </CardHeader>
               <CardContent className="space-y-4">
@@ -650,7 +650,7 @@ export default function AdminDashboardClient() {
                   </Button>
                 </div>
                 <p className="text-sm text-foreground-secondary">
-                  <strong className="text-foreground">{selectedIds.size}</strong> empleado(s) seleccionado(s)
+                  <strong className="text-foreground">{selectedIds.size}</strong> trabajador(es) seleccionado(s)
                 </p>
               </CardHeader>
               <CardContent className="space-y-4">

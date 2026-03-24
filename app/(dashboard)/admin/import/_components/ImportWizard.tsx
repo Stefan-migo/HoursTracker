@@ -7,7 +7,7 @@ import { useImportWizard } from '@/lib/hooks/useImportWizard'
 import { UploadStep } from './steps/UploadStep'
 import { TransformStep } from './steps/TransformStep'
 import { PreviewStep } from './steps/PreviewStep'
-import { EmployeeStep } from './steps/EmployeeStep'
+import { WorkerStep } from './steps/WorkerStep'
 import { ConfirmStep } from './steps/ConfirmStep'
 import type { ImportStep } from '@/lib/import/types'
 import type { TransformedRecord } from '@/lib/transformers/types'
@@ -16,7 +16,7 @@ const steps: { number: ImportStep; title: string; description: string }[] = [
   { number: 1, title: 'Archivo', description: 'Sube tu archivo Excel o CSV' },
   { number: 2, title: 'Transformar', description: 'Detecta y transforma formato' },
   { number: 3, title: 'Vista Previa', description: 'Revisa los datos' },
-  { number: 4, title: 'Empleados', description: 'Gestiona empleados nuevos' },
+  { number: 4, title: 'Trabajadores', description: 'Gestiona trabajadores nuevos' },
   { number: 5, title: 'Confirmar', description: 'Importa los registros' }
 ]
 
@@ -45,7 +45,7 @@ export function ImportWizard() {
       case 3:
         return <PreviewStep wizard={wizard} />
       case 4:
-        return <EmployeeStep wizard={wizard} />
+        return <WorkerStep wizard={wizard} />
       case 5:
         return <ConfirmStep wizard={wizard} />
       default:

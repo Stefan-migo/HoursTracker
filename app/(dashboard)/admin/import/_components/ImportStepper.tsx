@@ -8,7 +8,7 @@ const STEP_CONFIG = [
   { id: 'upload', label: 'Archivo', index: 0 },
   { id: 'transform', label: 'Transformar', index: 1 },
   { id: 'preview', label: 'Vista Previa', index: 2 },
-  { id: 'employees', label: 'Empleados', index: 3 },
+  { id: 'workers', label: 'Trabajadores', index: 3 },
   { id: 'confirm', label: 'Confirmar', index: 4 },
 ]
 

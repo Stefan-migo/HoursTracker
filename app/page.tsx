@@ -19,5 +19,5 @@ export default async function HomePage() {
     redirect('/admin')
   }
 
-  redirect('/employee')
+  redirect('/worker')
 }

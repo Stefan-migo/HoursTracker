@@ -216,7 +216,7 @@ export function TransformStep({ headers, rows, onTransformComplete, onBack }: Tr
               </div>
               <div className="p-4 bg-background-secondary rounded-lg text-center">
                 <div className="text-2xl font-semibold text-accent">{stats.uniqueEmployees}</div>
-                <div className="text-xs text-foreground-secondary">Empleados</div>
+                  <div className="text-xs text-foreground-secondary">Trabajadores</div>
               </div>
               <div className="p-4 bg-background-secondary rounded-lg text-center">
                 <div className="text-2xl font-semibold text-accent">{stats.uniqueDates}</div>
@@ -271,7 +271,7 @@ export function TransformStep({ headers, rows, onTransformComplete, onBack }: Tr
                 <thead>
                   <tr className="border-b border-border-subtle bg-background-secondary/50">
                     <th className="text-left py-2 px-3 text-sm font-medium text-foreground-secondary">Estado</th>
-                    <th className="text-left py-2 px-3 text-sm font-medium text-foreground-secondary">Empleado</th>
+                    <th className="text-left py-2 px-3 text-sm font-medium text-foreground-secondary">Trabajador</th>
                     <th className="text-left py-2 px-3 text-sm font-medium text-foreground-secondary hidden sm:table-cell">Email</th>
                     <th className="text-left py-2 px-3 text-sm font-medium text-foreground-secondary">Fecha</th>
                     <th className="text-left py-2 px-3 text-sm font-medium text-foreground-secondary">Entrada</th>

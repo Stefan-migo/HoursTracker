@@ -2,11 +2,10 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { createClient } from '@/lib/supabase/client-auth'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Clock, User, Shield, AlertTriangle, CheckCircle2 } from 'lucide-react'
+import { Clock, User, Shield, AlertTriangle, CheckCircle2, ShieldCheck, Mail } from 'lucide-react'
 import { toast } from 'sonner'
 import { Spinner } from '@/components/ui/spinner'
 import Link from 'next/link'
@@ -31,15 +30,10 @@ export function SignupForm() {
   useEffect(() => {
     async function checkAdminExists() {
       try {
-        const supabase = createClient()
-        const { data, error } = await supabase
-          .from('profiles')
-          .select('id')
-          .eq('role', 'admin')
-          .limit(1)
-          .single()
+        const response = await fetch('/api/auth/check-admin')
+        const result = await response.json()
 
-        if (data) {
+        if (result.adminExists) {
           setAdminExists(true)
         }
       } catch {
@@ -56,14 +50,8 @@ export function SignupForm() {
     setIsLoading(true)
     setError(null)
 
-    if (!fullName || !email || !password) {
+    if (!fullName || !email || !password || !confirmPassword) {
       setError('Todos los campos son requeridos')
-      setIsLoading(false)
-      return
-    }
-
-    if (password !== confirmPassword) {
-      setError('Las contraseñas no coinciden')
       setIsLoading(false)
       return
     }
@@ -74,59 +62,85 @@ export function SignupForm() {
       return
     }
 
+    if (password !== confirmPassword) {
+      setError('Las contraseñas no coinciden')
+      setIsLoading(false)
+      return
+    }
+
     if (adminCode !== ADMIN_SIGNUP_CODE) {
       setError('Código de administrador inválido')
       setIsLoading(false)
       return
     }
 
-    const supabase = createClient()
+    try {
+      const response = await fetch('/api/auth/signup', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          fullName,
+          email,
+          password,
+          adminCode,
+        }),
+      })
 
-    const { data, error: signUpError } = await supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        emailRedirectTo: `${window.location.origin}/auth/callback`,
-        data: {
-          full_name: fullName,
-          role: 'admin',
-        },
-      },
-    })
+      const result = await response.json()
 
-    if (signUpError) {
-      setError(signUpError.message)
+      if (!response.ok) {
+        setError(result.error || 'Error en el registro')
+        toast.error('Error en el registro', {
+          description: result.error,
+        })
+        setIsLoading(false)
+        return
+      }
+
+      toast.success('Cuenta creada')
+      setSuccess(true)
+    } catch (err) {
+      setError('Error al conectar con el servidor')
       toast.error('Error en el registro', {
-        description: signUpError.message,
+        description: 'No se pudo conectar con el servidor',
       })
       setIsLoading(false)
-      return
     }
+  }
 
-    if (data.user) {
-      const confirmUrl = `${window.location.origin}/auth/confirm?token=${encodeURIComponent(data.user.id)}&email=${encodeURIComponent(email)}`
-      
-      try {
-        await fetch('/api/auth/send-confirmation', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            email,
-            fullName,
-            confirmationUrl: confirmUrl,
-          }),
-        })
-      } catch (emailError) {
-        console.error('Error sending confirmation email via Resend:', emailError)
-      }
-      
-      setSuccess(true)
-      toast.success('¡Registro exitoso!', {
-        description: 'Se ha enviado un correo de confirmación a tu email.',
-      })
-    }
-    
-    setIsLoading(false)
+  if (success) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background-secondary p-4">
+        <Card className="w-full max-w-sm animate-scale-in">
+          <CardHeader className="space-y-3 text-center pb-2">
+            <div className="flex justify-center">
+              <div className="p-3 bg-success/10 rounded-xl">
+                <CheckCircle2 className="h-6 w-6 text-success" />
+              </div>
+            </div>
+            <CardTitle className="text-xl">¡Cuenta creada!</CardTitle>
+            <CardDescription>
+              Tu cuenta de administrador ha sido creada exitosamente
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="flex flex-col items-center gap-3 p-6 bg-success/10 rounded-lg">
+              <ShieldCheck className="h-12 w-12 text-success" />
+              <p className="text-sm text-foreground-secondary text-center">
+                Ahora puedes iniciar sesión con tus credenciales
+              </p>
+            </div>
+
+            <Button 
+              className="w-full" 
+              onClick={() => router.push('/login')}
+            >
+              Ir a iniciar sesión
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    )
   }
 
   if (checkingAdmin) {
@@ -163,45 +177,12 @@ export function SignupForm() {
                 Para crear nuevas cuentas de usuario, por favor contacta al administrador del sistema.
               </p>
               <p className="text-xs text-foreground-secondary">
-                Los empleados deben ser registrados por un administrador desde el panel de administración.
+                Los trabajadores deben ser registrados por un administrador desde el panel de administración.
               </p>
             </div>
 
             <Link href="/login">
               <Button variant="outline" className="w-full">
-                Ir a iniciar sesión
-              </Button>
-            </Link>
-          </CardContent>
-        </Card>
-      </div>
-    )
-  }
-
-  if (success) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-background-secondary p-4">
-        <Card className="w-full max-w-sm animate-scale-in">
-          <CardHeader className="space-y-3 text-center pb-2">
-            <div className="flex justify-center">
-              <div className="p-3 bg-success/10 rounded-xl">
-                <CheckCircle2 className="h-6 w-6 text-success" />
-              </div>
-            </div>
-            <CardTitle className="text-xl">¡Registro exitoso!</CardTitle>
-            <CardDescription>
-              Se ha enviado un correo de confirmación a tu email
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="p-4 bg-background-tertiary rounded-lg text-center">
-              <p className="text-sm text-foreground-secondary">
-                Por favor, revisa tu bandeja de entrada y confirma tu email antes de iniciar sesión.
-              </p>
-            </div>
-
-            <Link href="/login">
-              <Button className="w-full">
                 Ir a iniciar sesión
               </Button>
             </Link>
@@ -339,8 +320,8 @@ export function SignupForm() {
                 </>
               ) : (
                 <>
-                  <User className="h-4 w-4 mr-2" />
-                  Crear cuenta de administrador
+                  <Mail className="h-4 w-4 mr-2" />
+                  Crear cuenta
                 </>
               )}
             </Button>

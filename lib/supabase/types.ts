@@ -1,7 +1,7 @@
 export type Profile = {
   id: string
   full_name: string
-  role: 'employee' | 'admin'
+  role: 'worker' | 'admin'
   is_active: boolean
   email: string
   created_at: string
@@ -56,7 +56,7 @@ export type DisputeWithProfile = Dispute & {
   }
 }
 
-export type EmployeeSummary = {
+export type WorkerSummary = {
   user_id: string
   full_name: string
   total_hours: number

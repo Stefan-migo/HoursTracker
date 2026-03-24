@@ -22,27 +22,69 @@ export async function POST(request: Request) {
     .single()
 
   if (profile?.role !== 'admin') {
-    return NextResponse.json({ error: 'Solo admins pueden invitar empleados' }, { status: 403 })
+    return NextResponse.json({ error: 'Solo admins pueden invitar trabajadores' }, { status: 403 })
   }
 
   const body = await request.json()
-  const { email, full_name } = body
+  const { email, full_name, sendInvitation = true } = body
 
-  if (!email || !full_name) {
-    return NextResponse.json({ error: 'Email y nombre son requeridos' }, { status: 400 })
+  if (!full_name) {
+    return NextResponse.json({ error: 'El nombre es requerido' }, { status: 400 })
   }
 
-  const { data: existingProfile } = await supabase
-    .from('profiles')
-    .select('id')
-    .eq('email', email.toLowerCase())
-    .single()
+  // Validate email if provided and sendInvitation is true
+  if (email && sendInvitation) {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+    if (!emailRegex.test(email)) {
+      return NextResponse.json({ error: 'El formato del email es inválido' }, { status: 400 })
+    }
 
-  if (existingProfile) {
-    return NextResponse.json({ error: 'Ya existe un empleado con este email' }, { status: 400 })
+    const { data: existingProfile } = await supabase
+      .from('profiles')
+      .select('id')
+      .eq('email', email.toLowerCase())
+      .single()
+
+    if (existingProfile) {
+      return NextResponse.json({ error: 'Ya existe un trabajador con este email' }, { status: 400 })
+    }
   }
 
   try {
+    // If no email or sendInvitation is false, create only the profile (no auth user)
+    if (!email || !sendInvitation) {
+      // Create a profile without auth user (for admin-only employees)
+      const { data: newProfile, error: profileError } = await supabaseAdmin
+        .from('profiles')
+        .insert({
+          full_name: full_name.trim(),
+          email: email ? email.toLowerCase() : null,
+          role: 'worker',
+          is_active: true,
+          invitation_status: 'none',
+        })
+        .select()
+        .single()
+
+      if (profileError) {
+        console.error('Error creating profile:', profileError)
+        return NextResponse.json({ error: 'Error al crear el trabajador' }, { status: 500 })
+      }
+
+      return NextResponse.json({
+        success: true,
+        user: {
+          id: newProfile.id,
+          email: newProfile.email,
+          full_name: newProfile.full_name,
+        },
+        invite_url: null,
+        message: email 
+          ? 'Trabajador creado sin invitación. Puedes enviar una invitación más tarde.'
+          : 'Trabajador creado sin cuenta. No tendrá acceso a la plataforma.',
+      })
+    }
+
     // Create user with email confirmed
     const { data: newUser, error: createError } = await supabaseAdmin.auth.admin.createUser({
       email: email.toLowerCase(),
@@ -73,11 +115,13 @@ export async function POST(request: Request) {
         full_name,
         email: email.toLowerCase(),
         is_active: true,
+        invitation_status: 'active',
       })
       .eq('id', newUser.user.id)
 
     // Send email via Resend if configured
     let emailSent = false
+    let finalInvitationStatus = 'pending'
     const resendApiKey = process.env.RESEND_API_KEY
     
     if (resendApiKey && resendApiKey !== 're_xxxxxxxxxxxxx') {
@@ -98,12 +142,19 @@ export async function POST(request: Request) {
           console.error('Error sending email:', emailError)
         } else {
           emailSent = true
+          finalInvitationStatus = 'active'
           console.log('Email sent:', emailData?.id)
         }
       } catch (err) {
         console.error('Resend error:', err)
       }
     }
+
+    // Update invitation status
+    await supabase
+      .from('profiles')
+      .update({ invitation_status: finalInvitationStatus })
+      .eq('id', newUser.user.id)
 
     return NextResponse.json({
       success: true,
@@ -114,8 +165,8 @@ export async function POST(request: Request) {
       },
       invite_url: emailSent ? undefined : inviteUrl,
       message: emailSent 
-        ? 'Empleado creado. Se ha enviado un correo con el enlace de invitación.'
-        : `Empleado creado. Copia este enlace para el empleado: ${inviteUrl}`,
+        ? 'Trabajador creado. Se ha enviado un correo con el enlace de invitación.'
+        : `Trabajador creado. Copia este enlace para el trabajador: ${inviteUrl}`,
     })
   } catch (error) {
     console.error('Unexpected error:', error)

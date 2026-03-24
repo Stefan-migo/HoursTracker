@@ -21,7 +21,7 @@ export async function GET(request: Request) {
           .eq('id', user.id)
           .single()
         
-        const redirectPath = profile?.role === 'admin' ? '/admin' : '/employee'
+        const redirectPath = profile?.role === 'admin' ? '/admin' : '/worker'
         return NextResponse.redirect(`${origin}${redirectPath}`)
       }
       

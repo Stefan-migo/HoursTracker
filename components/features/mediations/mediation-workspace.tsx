@@ -264,7 +264,7 @@ export function MediationWorkspace({ mediationId, onClose, onUpdate }: Mediation
                 <CardContent className="py-6">
                   <p className="text-sm text-foreground-secondary">
                     <strong className="text-foreground">¿Por qué editar?</strong><br /><br />
-                    Si consideras que el empleado tiene razón, ajusta el registro oficial para que coincida. Esto ayudará a resolver la mediación.
+                    Si consideras que el trabajador tiene razón, ajusta el registro oficial para que coincida. Esto ayudará a resolver la mediación.
                   </p>
                 </CardContent>
               </Card>

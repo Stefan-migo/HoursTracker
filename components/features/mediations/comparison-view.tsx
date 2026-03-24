@@ -55,7 +55,7 @@ export function ComparisonView({
           </div>
           <div>
             <p className="font-medium text-foreground">Los registros coinciden</p>
-            <p className="text-sm text-foreground-secondary">No hay diferencias entre el registro oficial y el del empleado</p>
+            <p className="text-sm text-foreground-secondary">No hay diferencias entre el registro oficial y el del trabajador</p>
           </div>
         </CardContent>
       </Card>
@@ -82,7 +82,7 @@ export function ComparisonView({
 
           {/* Employee Timeline */}
           <TimelineRow
-            label="Registro Empleado"
+            label="Registro Trabajador"
             record={employeeRecord}
             color={hasAnyDiff ? 'warning' : 'success'}
           />

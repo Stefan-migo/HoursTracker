@@ -72,7 +72,7 @@ export default async function InactivePage() {
           <div className="pt-4 space-y-2">
             <div className="flex gap-2 justify-center">
               <Button variant="outline" asChild>
-                <Link href="/employee/my-logs">Ver Mis Registros</Link>
+                <Link href="/worker/my-logs">Ver Mis Registros</Link>
               </Button>
             </div>
             <form action={handleSignOut}>

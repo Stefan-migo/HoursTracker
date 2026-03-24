@@ -22,6 +22,106 @@ interface ImportRequest {
   employees: EmployeeInput[]
 }
 
+interface TimeLogRecord {
+  user_id: string
+  date: string
+  clock_in: string
+  clock_out: string
+  total_hours: number
+  is_official: boolean
+  is_manual: boolean
+  marked_by: string | null
+}
+
+async function checkAndCreateMediations(records: TimeLogRecord[], adminId: string) {
+  const DISCREPANCY_THRESHOLD_MINUTES = 10
+  const DISCREPANCY_THRESHOLD_HOURS = 0.17
+
+  for (const record of records) {
+    if (!record.is_official) continue
+
+    const { data: personalLog } = await supabaseAdmin
+      .from('time_logs')
+      .select('*')
+      .eq('user_id', record.user_id)
+      .eq('date', record.date)
+      .eq('is_official', false)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .single()
+
+    if (!personalLog) continue
+
+    const officialClockIn = new Date(record.clock_in)
+    const officialClockOut = new Date(record.clock_out)
+    const personalClockIn = new Date(personalLog.clock_in)
+    const personalClockOut = new Date(personalLog.clock_out)
+
+    const clockInDiff = Math.abs((officialClockIn.getTime() - personalClockIn.getTime()) / (1000 * 60))
+    const clockOutDiff = Math.abs((officialClockOut.getTime() - personalClockOut.getTime()) / (1000 * 60))
+    const totalHoursDiff = Math.abs(record.total_hours - (personalLog.total_hours || 0))
+
+    if (clockInDiff > DISCREPANCY_THRESHOLD_MINUTES ||
+        clockOutDiff > DISCREPANCY_THRESHOLD_MINUTES ||
+        totalHoursDiff > DISCREPANCY_THRESHOLD_HOURS) {
+
+      const { data: existingMediation } = await supabaseAdmin
+        .from('mediations')
+        .select('id')
+        .eq('employee_id', record.user_id)
+        .eq('date', record.date)
+        .eq('is_active', true)
+        .in('status', ['pending_review', 'in_discussion', 'agreement_reached'])
+        .limit(1)
+
+      if (existingMediation) continue
+
+      const { data: officialLog } = await supabaseAdmin
+        .from('time_logs')
+        .select('id')
+        .eq('user_id', record.user_id)
+        .eq('date', record.date)
+        .eq('is_official', true)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .single()
+
+      if (!officialLog) continue
+
+      const initialReason = `Discrepancia automática detectada: ${clockInDiff > DISCREPANCY_THRESHOLD_MINUTES ? `Entrada difiere en ${Math.round(clockInDiff)} minutos. ` : ''}${clockOutDiff > DISCREPANCY_THRESHOLD_MINUTES ? `Salida difiere en ${Math.round(clockOutDiff)} minutos. ` : ''}${totalHoursDiff > DISCREPANCY_THRESHOLD_HOURS ? `Total de horas difiere en ${totalHoursDiff.toFixed(2)} horas.` : ''}`
+
+      const { error: mediationError } = await supabaseAdmin
+        .from('mediations')
+        .insert({
+          employee_id: record.user_id,
+          date: record.date,
+          admin_time_log_id: officialLog.id,
+          employee_time_log_id: personalLog.id,
+          admin_clock_in_snap: record.clock_in,
+          admin_clock_out_snap: record.clock_out,
+          admin_total_hours_snap: record.total_hours,
+          employee_clock_in_snap: personalLog.clock_in,
+          employee_clock_out_snap: personalLog.clock_out,
+          employee_total_hours_snap: personalLog.total_hours,
+          initial_reason: initialReason,
+          status: 'pending_review',
+          admin_last_activity_at: new Date().toISOString(),
+          last_activity_by: adminId,
+          is_active: true
+        })
+
+      if (mediationError) {
+        console.error('Error creating mediation:', mediationError)
+      } else {
+        await supabaseAdmin
+          .from('time_logs')
+          .update({ mediation_id: officialLog.id })
+          .in('id', [officialLog.id, personalLog.id])
+      }
+    }
+  }
+}
+
 export async function POST(request: Request) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -63,10 +163,10 @@ export async function POST(request: Request) {
         if (!emp.fullName?.trim()) continue
 
         try {
-          // Verificar si ya existe el profile
-          const { data: existingProfile } = await supabase
+          // Verificar si ya existe el profile por email
+          const { data: existingProfile } = await supabaseAdmin
             .from('profiles')
-            .select('id')
+            .select('id, email')
             .eq('email', emp.email.toLowerCase())
             .single()
 
@@ -87,8 +187,9 @@ export async function POST(request: Request) {
                 .from('profiles')
                 .insert({
                   id: user.id,
+                  email: emp.email.toLowerCase(),
                   full_name: emp.fullName.trim(),
-                  role: 'employee',
+                  role: 'worker',
                   is_active: true,
                   invitation_status: emp.sendInvitation ? 'active' : 'pending'
                 })
@@ -133,6 +234,7 @@ export async function POST(request: Request) {
               .from('profiles')
               .insert({
                 id: newUserId,
+                email: emp.email.toLowerCase(),
                 full_name: emp.fullName.trim(),
                 role: 'employee',
                 is_active: true,
@@ -148,6 +250,7 @@ export async function POST(request: Request) {
             await supabaseAdmin
               .from('profiles')
               .update({
+                email: emp.email.toLowerCase(),
                 full_name: emp.fullName.trim(),
                 is_active: true,
                 invitation_status: emp.sendInvitation ? 'active' : 'pending'
@@ -178,8 +281,8 @@ export async function POST(request: Request) {
 
     const emails = [...new Set(validRecords.map(l => l.email.toLowerCase()))]
 
-    // Obtener perfiles por email
-    const { data: profiles } = await supabase
+    // Obtener perfiles por email usando admin client para bypass RLS
+    const { data: profiles } = await supabaseAdmin
       .from('profiles')
       .select('id, email')
       .in('email', emails)
@@ -251,10 +354,11 @@ export async function POST(request: Request) {
     result.failed = validRecords.length - recordsToInsert.length - result.skipped
 
     if (recordsToInsert.length > 0) {
-      // Usar admin client para bypass RLS
-      const { error: insertError } = await supabaseAdmin
-        .from('time_logs')
-        .insert(recordsToInsert)
+      // Usar la función RPC para insertar registros oficiales (bypasses trigger)
+      const { error: insertError } = await supabaseAdmin.rpc(
+        'insert_official_time_logs',
+        { time_logs_array: recordsToInsert }
+      )
 
       if (insertError) {
         console.error('Insert error:', insertError)
@@ -267,6 +371,9 @@ export async function POST(request: Request) {
       }
 
       result.imported = recordsToInsert.length
+
+      // Check and create mediations for imported records
+      await checkAndCreateMediations(recordsToInsert, user.id)
     }
 
     return NextResponse.json(result)

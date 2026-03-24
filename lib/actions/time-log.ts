@@ -34,7 +34,7 @@ export async function markClockIn() {
     return { error: error.message }
   }
 
-  revalidatePath('/employee')
+  revalidatePath('/worker')
   return { success: true }
 }
 
@@ -76,7 +76,7 @@ export async function markClockOut() {
     return { error: error.message }
   }
 
-  revalidatePath('/employee')
+  revalidatePath('/worker')
   return { success: true }
 }
 

@@ -6,7 +6,7 @@ const putSchema = z.object({
   id: z.string().uuid('ID inválido'),
   full_name: z.string().min(1).max(100).optional(),
   email: z.string().email('Email inválido').optional(),
-  role: z.enum(['admin', 'employee']).optional(),
+  role: z.enum(['admin', 'worker']).optional(),
   is_active: z.boolean().optional(),
 })
 
@@ -29,7 +29,7 @@ export async function GET(request: Request) {
     .single()
 
   if (profile?.role !== 'admin') {
-    return NextResponse.json({ error: 'Solo admins pueden ver empleados' }, { status: 403 })
+    return NextResponse.json({ error: 'Solo admins pueden ver trabajadores' }, { status: 403 })
   }
 
   let query = supabase
@@ -72,7 +72,7 @@ export async function PUT(request: Request) {
       .single()
 
     if (profile?.role !== 'admin') {
-      return NextResponse.json({ error: 'Solo admins pueden modificar empleados' }, { status: 403 })
+      return NextResponse.json({ error: 'Solo admins pueden modificar trabajadores' }, { status: 403 })
     }
 
     const body = await request.json()
@@ -145,7 +145,7 @@ export async function DELETE(request: Request) {
     .single()
 
   if (profile?.role !== 'admin') {
-    return NextResponse.json({ error: 'Solo admins pueden eliminar empleados' }, { status: 403 })
+    return NextResponse.json({ error: 'Solo admins pueden eliminar trabajadores' }, { status: 403 })
   }
 
   // Don't allow deleting self

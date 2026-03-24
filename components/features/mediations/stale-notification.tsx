@@ -61,8 +61,8 @@ export function StaleNotification({
     icon = <MessageCircle className="h-6 w-6 text-accent" />
   } else if (isAdmin && employeeRecent) {
     // Employee updated recently, admin hasn't
-    title = 'El empleado ha propuesto ajustes'
-    message = 'El empleado ha realizado cambios recientemente. Revisa los valores propuestos y acepta o realiza una contrapropuesta.'
+    title = 'El trabajador ha propuesto ajustes'
+    message = 'El trabajador ha realizado cambios recientemente. Revisa los valores propuestos y acepta o realiza una contrapropuesta.'
     icon = <Clock className="h-6 w-6 text-warning" />
     showContactButton = false
   } else if (!isAdmin && adminRecent) {
@@ -102,7 +102,7 @@ export function StaleNotification({
             className="flex-shrink-0 bg-accent hover:bg-accent/90 text-white shadow-sm hover:shadow-md transition-all hover:-translate-y-0.5"
           >
             <MessageCircle className="mr-2 h-4 w-4" />
-            Contactar {otherParty.role === 'admin' ? 'Admin' : 'Empleado'}
+            Contactar {otherParty.role === 'admin' ? 'Admin' : 'Trabajador'}
           </Button>
         )}
       </CardContent>

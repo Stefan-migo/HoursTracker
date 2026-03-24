@@ -17,7 +17,7 @@ export default async function AdminDashboardPage() {
     .single()
 
   if (profile?.role !== 'admin') {
-    redirect('/employee')
+    redirect('/worker')
   }
 
   return <AdminDashboardClient />

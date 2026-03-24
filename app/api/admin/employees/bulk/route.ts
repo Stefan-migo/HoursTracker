@@ -1,11 +1,12 @@
 import { createClient } from '@/lib/supabase/server'
+import { supabaseAdmin } from '@/lib/supabase/admin'
 import { NextResponse } from 'next/server'
 import { z } from 'zod'
 
 const bulkActionSchema = z.object({
   ids: z.array(z.string().uuid()).min(1, 'Se requiere al menos un ID'),
-  action: z.enum(['activate', 'deactivate', 'delete', 'change_role']),
-  role: z.enum(['admin', 'employee']).optional(),
+  action: z.enum(['activate', 'deactivate', 'delete', 'change_role', 'send_invitation']),
+  role: z.enum(['admin', 'worker']).optional(),
 })
 
 export async function POST(request: Request) {
@@ -88,7 +89,16 @@ export async function POST(request: Request) {
       case 'delete':
         // Delete auth users first, then profiles will be cascade deleted
         for (const id of ids) {
-          const { error } = await supabase.auth.admin.deleteUser(id)
+          // First check if user exists in auth.users
+          const { data: userList } = await supabaseAdmin.auth.admin.listUsers()
+          const userExists = userList?.users.some(u => u.id === id)
+          
+          if (!userExists) {
+            console.log(`User ${id} not found in auth.users, skipping delete from auth`)
+            continue
+          }
+          
+          const { error } = await supabaseAdmin.auth.admin.deleteUser(id)
           if (error) {
             console.error(`Error deleting user ${id}:`, error)
             return NextResponse.json(
@@ -99,7 +109,75 @@ export async function POST(request: Request) {
         }
         return NextResponse.json({ 
           success: true, 
-          message: `${ids.length} empleado(s) eliminado(s) correctamente` 
+          message: `${ids.length} trabajador(es) eliminado(s) correctamente` 
+        })
+
+      case 'send_invitation':
+        // Get employees with pending or no invitation status and with email
+        const { data: employeesToInvite } = await supabase
+          .from('profiles')
+          .select('id, email, full_name')
+          .in('id', ids)
+          .not('email', 'is', null)
+
+        if (!employeesToInvite || employeesToInvite.length === 0) {
+          return NextResponse.json({
+            success: false,
+            error: 'No hay trabajadores con email para invitar'
+          }, { status: 400 })
+        }
+
+        let invitedCount = 0
+        const failedEmails: string[] = []
+
+        for (const emp of employeesToInvite) {
+          if (!emp.email) continue
+
+          // Check if user exists in auth
+          const { data: existingUser } = await supabaseAdmin.auth.admin.listUsers()
+          const userExists = existingUser?.users.some(u => u.id === emp.id)
+
+          if (!userExists) {
+            // Create auth user if doesn't exist
+            const { data: newUser, error: createError } = await supabaseAdmin.auth.admin.createUser({
+              email: emp.email.toLowerCase(),
+              email_confirm: true,
+              user_metadata: { full_name: emp.full_name },
+            })
+
+            if (createError) {
+              console.error(`Error creating user ${emp.email}:`, createError)
+              failedEmails.push(emp.email)
+              continue
+            }
+          }
+
+          // Generate invite URL
+          const inviteToken = Buffer.from(`${emp.id}:${emp.email}:${Date.now()}`).toString('base64url')
+          const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
+          const inviteUrl = `${appUrl}/login?invite=${inviteToken}`
+
+          // Update invitation status to pending
+          await supabase
+            .from('profiles')
+            .update({ invitation_status: 'pending' })
+            .eq('id', emp.id)
+
+          invitedCount++
+        }
+
+        if (failedEmails.length > 0) {
+          return NextResponse.json({
+            success: true,
+            message: `${invitedCount} invitación(es) enviadas, ${failedEmails.length} fallidas`,
+            failedEmails
+          })
+        }
+
+        return NextResponse.json({ 
+          success: true, 
+          message: `${invitedCount} invitación(es) enviada(s) correctamente`,
+          count: invitedCount
         })
 
       default:
@@ -125,7 +203,7 @@ export async function POST(request: Request) {
 
     return NextResponse.json({ 
       success: true, 
-      message: `${ids.length} empleado(s) ${actionMessages[action]} correctamente`,
+      message: `${ids.length} trabajador(es) ${actionMessages[action]} correctamente`,
       count: ids.length
     })
   } catch (error) {

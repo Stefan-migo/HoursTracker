@@ -129,7 +129,7 @@ export function ConfirmStep({ wizard }: ConfirmStepProps) {
               <Card className="bg-background-secondary">
                 <CardContent className="p-4 text-center">
                   <div className="text-2xl font-semibold">{state.importResult.employeesCreated}</div>
-                  <div className="text-xs text-foreground-secondary">Empleados creados</div>
+                  <div className="text-xs text-foreground-secondary">Trabajadores creados</div>
                 </CardContent>
               </Card>
               <Card className="bg-background-secondary">
@@ -221,7 +221,7 @@ export function ConfirmStep({ wizard }: ConfirmStepProps) {
             <div className="p-4 bg-background-secondary rounded-lg">
               <div className="flex items-center gap-2 mb-2">
                 <Users className="h-4 w-4 text-foreground-secondary" />
-                <span className="text-sm text-foreground-secondary">Empleados a crear</span>
+                <span className="text-sm text-foreground-secondary">Trabajadores a crear</span>
               </div>
               <div className="text-2xl font-semibold">{employeesToCreate}</div>
             </div>
@@ -260,7 +260,7 @@ export function ConfirmStep({ wizard }: ConfirmStepProps) {
             </p>
             <p className="text-sm text-error/80 mt-1">
               Una vez confirmada, los registros se importarán a la base de datos 
-              y los empleados se crearán en el sistema.
+              y los trabajadores se crearán en el sistema.
             </p>
           </div>
         </CardContent>

@@ -22,7 +22,7 @@ async function getUser() {
 
   return {
     userName: profile?.full_name || null,
-    userRole: profile?.role || 'employee'
+    userRole: profile?.role || 'worker'
   }
 }
 
@@ -59,7 +59,7 @@ export default async function DashboardRootLayout({
                 <div className="flex flex-col" suppressHydrationWarning>
                   <span className="font-medium text-foreground text-sm leading-none">{userName || 'Usuario'}</span>
                   <span className="text-xs text-foreground-secondary">
-                    {userRole === 'admin' ? 'Administrador' : 'Empleado'}
+                    {userRole === 'admin' ? 'Administrador' : 'Trabajador'}
                   </span>
                 </div>
               </div>
@@ -92,11 +92,11 @@ export default async function DashboardRootLayout({
             {userRole === 'admin' && (
               <>
                 <Link
-                  href="/admin/employees"
+                  href="/admin/workers"
                   className="flex items-center gap-3 px-3 py-2.5 text-sm font-medium rounded-md transition-all duration-200 text-foreground-secondary hover:bg-background-tertiary hover:text-foreground"
                 >
                   <Users className="h-4 w-4" />
-                  Empleados
+                  Trabajadores
                 </Link>
                 <Link
                   href="/admin/logs"
@@ -121,17 +121,17 @@ export default async function DashboardRootLayout({
                 </Link>
               </>
             )}
-            {userRole === 'employee' && (
+            {userRole === 'worker' && (
               <>
                 <Link
-                  href="/employee/my-logs"
+                  href="/worker/my-logs"
                   className="flex items-center gap-3 px-3 py-2.5 text-sm font-medium rounded-md transition-all duration-200 text-foreground-secondary hover:bg-background-tertiary hover:text-foreground"
                 >
                   <Clock4 className="h-4 w-4" />
                   Mis Registros
                 </Link>
                 <Link
-                  href="/employee/disputes"
+                  href="/worker/disputes"
                   className="flex items-center gap-3 px-3 py-2.5 text-sm font-medium rounded-md transition-all duration-200 text-foreground-secondary hover:bg-background-tertiary hover:text-foreground"
                 >
                   <AlertTriangle className="h-4 w-4" />

@@ -123,7 +123,7 @@ export default function AdminMediationsPage() {
             <CardTitle>Lista de Mediaciones</CardTitle>
             <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
               <Input
-                placeholder="Buscar empleado..."
+                placeholder="Buscar trabajador..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="w-full sm:w-64"

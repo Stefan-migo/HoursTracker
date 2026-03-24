@@ -96,7 +96,16 @@ export function useWeeklyStats(customTargetHours?: number): UseWeeklyStatsReturn
       setIsLoading(true)
       setError(null)
       
-      const res = await fetch('/api/time-logs?limit=100&source=personal')
+      const today = new Date()
+      const currentDay = today.getDay()
+      const startOfWeek = new Date(today)
+      startOfWeek.setDate(today.getDate() - (currentDay === 0 ? 6 : currentDay - 1))
+      startOfWeek.setHours(0, 0, 0, 0)
+
+      const dateFrom = startOfWeek.toISOString().split('T')[0]
+      const dateTo = today.toISOString().split('T')[0]
+      
+      const res = await fetch(`/api/time-logs?limit=100&source=personal&date_from=${dateFrom}&date_to=${dateTo}`)
       if (res.ok) {
         const data = await res.json()
         const logs = data.data || []

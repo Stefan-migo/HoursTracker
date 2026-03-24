@@ -1,7 +1,8 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
+import AdminDashboardClient from './admin-dashboard-client'
 
-export default async function HomePage() {
+export default async function AdminDashboardPage() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
 
@@ -15,9 +16,9 @@ export default async function HomePage() {
     .eq('id', user.id)
     .single()
 
-  if (profile?.role === 'admin') {
-    redirect('/admin')
+  if (profile?.role !== 'admin') {
+    redirect('/employee')
   }
 
-  redirect('/employee')
+  return <AdminDashboardClient />
 }

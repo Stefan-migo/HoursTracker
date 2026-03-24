@@ -1,26 +1,243 @@
 @import "tailwindcss";
 
 :root {
+  /* Forest Trust - Light Mode */
   --background: #ffffff;
-  --foreground: #171717;
+  --background-secondary: #f5f5f7;
+  --background-tertiary: #e5e5ea;
+  --foreground: #1d1d1f;
+  --foreground-secondary: #6B7280;
+  
+  /* Primary - Forest Green */
+  --accent: #2D6A4F;
+  --accent-hover: #40916C;
+  --accent-active: #1B4332;
+  --accent-light: #52B788;
+  --accent-muted: rgba(45, 106, 79, 0.12);
+  --accent-foreground: #FFFFFF;
+  --accent-secondary: #74C69D;
+  
+  /* Semaphore - Sophisticated Palette */
+  --success: #2D6A4F;
+  --success-hover: #40916C;
+  --success-muted: rgba(45, 106, 79, 0.12);
+  --warning: #B69121;
+  --warning-hover: #C4A035;
+  --warning-muted: rgba(182, 145, 33, 0.12);
+  --error: #9B2335;
+  --error-hover: #B52B40;
+  --error-muted: rgba(155, 35, 53, 0.12);
+  --info: #40916C;
+  --info-muted: rgba(64, 145, 108, 0.12);
+  
+  /* Borders */
+  --border: #E5E7EB;
+  --border-subtle: #F3F4F6;
+  
+  /* Radius */
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+  --radius-xl: 20px;
+}
+
+.dark {
+  /* Forest Trust - Dark Mode */
+  --background: #000000;
+  --background-secondary: #1c1c1e;
+  --background-tertiary: #2c2c2e;
+  --foreground: #f5f5f7;
+  --foreground-secondary: #9CA3AF;
+  
+  /* Primary - Brighter Green for Dark Mode */
+  --accent: #52B788;
+  --accent-hover: #74C69D;
+  --accent-active: #40916C;
+  --accent-light: #95D5B2;
+  --accent-muted: rgba(82, 183, 136, 0.20);
+  --accent-foreground: #000000;
+  --accent-secondary: #40916C;
+  
+  /* Semaphore - Dark Mode */
+  --success: #52B788;
+  --success-hover: #74C69D;
+  --success-muted: rgba(82, 183, 136, 0.20);
+  --warning: #D4A83A;
+  --warning-hover: #E0BC4C;
+  --warning-muted: rgba(212, 168, 58, 0.20);
+  --error: #D64550;
+  --error-hover: #E85D67;
+  --error-muted: rgba(214, 69, 80, 0.20);
+  --info: #74C69D;
+  --info-muted: rgba(116, 198, 157, 0.20);
+  
+  /* Borders */
+  --border: #3a3a3c;
+  --border-subtle: #2c2c2e;
 }
 
 @theme inline {
   --color-background: var(--background);
+  --color-background-secondary: var(--background-secondary);
+  --color-background-tertiary: var(--background-tertiary);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --color-foreground-secondary: var(--foreground-secondary);
+  --color-accent: var(--accent);
+  --color-accent-hover: var(--accent-hover);
+  --color-accent-muted: var(--accent-muted);
+  --color-success: var(--success);
+  --color-success-muted: var(--success-muted);
+  --color-warning: var(--warning);
+  --color-warning-muted: var(--warning-muted);
+  --color-error: var(--error);
+  --color-error-muted: var(--error-muted);
+  --color-border: var(--border);
+  --color-border-subtle: var(--border-subtle);
+  --radius-sm: var(--radius-sm);
+  --radius-md: var(--radius-md);
+  --radius-lg: var(--radius-lg);
+  --radius-xl: var(--radius-xl);
+  --font-sans: var(--font-geist-sans), system-ui, sans-serif;
+  --font-mono: var(--font-geist-mono), monospace;
 }
 
 @media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+  :root:not(.light) {
+    /* Forest Trust - Auto Dark Mode */
+    --background: #000000;
+    --background-secondary: #1c1c1e;
+    --background-tertiary: #2c2c2e;
+    --foreground: #f5f5f7;
+    --foreground-secondary: #9CA3AF;
+    --accent: #52B788;
+    --accent-hover: #74C69D;
+    --accent-muted: rgba(82, 183, 136, 0.20);
+    --border: #3a3a3c;
+    --border-subtle: #2c2c2e;
   }
+}
+
+* {
+  @apply border-border;
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+@keyframes fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes fade-out {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+
+@keyframes scale-in {
+  from { opacity: 0; transform: scale(0.95); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+@keyframes slide-in-from-top {
+  from { transform: translateY(-100%); }
+  to { transform: translateY(0); }
+}
+
+@keyframes slide-in-from-bottom {
+  from { transform: translateY(100%); }
+  to { transform: translateY(0); }
+}
+
+@keyframes slide-in-from-left {
+  from { transform: translateX(-100%); }
+  to { transform: translateX(0); }
+}
+
+@keyframes slide-in-from-right {
+  from { transform: translateX(100%); }
+  to { transform: translateX(0); }
+}
+
+@keyframes pulse-slow {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.animate-fade-in {
+  animation: fade-in 200ms ease-out;
+}
+
+.animate-fade-out {
+  animation: fade-out 200ms ease-out;
+}
+
+.animate-scale-in {
+  animation: scale-in 200ms ease-out;
+}
+
+.animate-slide-in-top {
+  animation: slide-in-from-top 300ms ease-out;
+}
+
+.animate-slide-in-bottom {
+  animation: slide-in-from-bottom 300ms ease-out;
+}
+
+.animate-slide-in-left {
+  animation: slide-in-from-left 300ms ease-out;
+}
+
+.animate-slide-in-right {
+  animation: slide-in-from-right 300ms ease-out;
+}
+
+.animate-pulse-slow {
+  animation: pulse-slow 2s ease-in-out infinite;
+}
+
+.animate-shimmer {
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.08), transparent);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+}
+
+.animate-spin {
+  animation: spin 1s linear infinite;
+}
+
+.skeleton {
+  background: linear-gradient(90deg, var(--background-secondary) 25%, var(--background-tertiary) 50%, var(--background-secondary) 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s ease-in-out infinite;
+  border-radius: var(--radius-md);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
 }

@@ -11,6 +11,8 @@ import { toast } from 'sonner'
 import { Spinner } from '@/components/ui/spinner'
 import Link from 'next/link'
 
+const ADMIN_SIGNUP_CODE = process.env.NEXT_PUBLIC_ADMIN_SIGNUP_CODE || 'CHANGE_ME'
+
 export function SignupForm() {
   const [error, setError] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(false)
@@ -20,8 +22,6 @@ export function SignupForm() {
   const [adminExists, setAdminExists] = useState(false)
   const [success, setSuccess] = useState(false)
   const router = useRouter()
-
-  const ADMIN_SIGNUP_CODE = 'ADMIN2024'
 
   useEffect(() => {
     async function checkAdminExists() {

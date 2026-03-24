@@ -1,12 +1,12 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client-auth'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Clock, User, Shield } from 'lucide-react'
+import { Clock, User, Shield, AlertTriangle, CheckCircle2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { Spinner } from '@/components/ui/spinner'
 import Link from 'next/link'
@@ -14,11 +14,37 @@ import Link from 'next/link'
 export function SignupForm() {
   const [error, setError] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(false)
-  const [isAdmin, setIsAdmin] = useState(false)
+  const [isAdmin, setIsAdmin] = useState(true)
   const [adminCode, setAdminCode] = useState('')
+  const [checkingAdmin, setCheckingAdmin] = useState(true)
+  const [adminExists, setAdminExists] = useState(false)
+  const [success, setSuccess] = useState(false)
   const router = useRouter()
 
   const ADMIN_SIGNUP_CODE = 'ADMIN2024'
+
+  useEffect(() => {
+    async function checkAdminExists() {
+      try {
+        const supabase = createClient()
+        const { data, error } = await supabase
+          .from('profiles')
+          .select('id')
+          .eq('role', 'admin')
+          .limit(1)
+          .single()
+
+        if (data) {
+          setAdminExists(true)
+        }
+      } catch {
+        setAdminExists(false)
+      } finally {
+        setCheckingAdmin(false)
+      }
+    }
+    checkAdminExists()
+  }, [])
 
   async function handleSubmit(formData: FormData) {
     setIsLoading(true)
@@ -47,7 +73,7 @@ export function SignupForm() {
       return
     }
 
-    if (isAdmin && adminCode !== ADMIN_SIGNUP_CODE) {
+    if (adminCode !== ADMIN_SIGNUP_CODE) {
       setError('Código de administrador inválido')
       setIsLoading(false)
       return
@@ -61,7 +87,7 @@ export function SignupForm() {
       options: {
         data: {
           full_name: fullName,
-          role: isAdmin ? 'admin' : 'employee',
+          role: 'admin',
         },
       },
     })
@@ -76,20 +102,95 @@ export function SignupForm() {
     }
 
     if (data.user) {
+      setSuccess(true)
       toast.success('¡Registro exitoso!', {
-        description: isAdmin 
-          ? 'Cuenta de administrador creada. Ya puedes iniciar sesión.' 
-          : 'Cuenta creada. Espera a que un administrador active tu cuenta.',
+        description: 'Se ha enviado un correo de confirmación a tu email.',
       })
-      
-      if (isAdmin) {
-        router.push('/login')
-      } else {
-        router.push('/login')
-      }
     }
     
     setIsLoading(false)
+  }
+
+  if (checkingAdmin) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background-secondary p-4">
+        <Card className="w-full max-w-sm animate-scale-in">
+          <CardContent className="flex flex-col items-center justify-center py-12">
+            <Spinner size="lg" className="text-accent mb-4" />
+            <p className="text-foreground-secondary text-sm">Verificando...</p>
+          </CardContent>
+        </Card>
+      </div>
+    )
+  }
+
+  if (adminExists && !success) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background-secondary p-4">
+        <Card className="w-full max-w-sm animate-scale-in">
+          <CardHeader className="space-y-3 text-center pb-2">
+            <div className="flex justify-center">
+              <div className="p-3 bg-warning/10 rounded-xl">
+                <AlertTriangle className="h-6 w-6 text-warning" />
+              </div>
+            </div>
+            <CardTitle className="text-xl">Registro no disponible</CardTitle>
+            <CardDescription>
+              Ya existe un administrador registrado en el sistema
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="p-4 bg-background-tertiary rounded-lg text-center">
+              <p className="text-sm text-foreground-secondary mb-2">
+                Para crear nuevas cuentas de usuario, por favor contacta al administrador del sistema.
+              </p>
+              <p className="text-xs text-foreground-secondary">
+                Los empleados deben ser registrados por un administrador desde el panel de administración.
+              </p>
+            </div>
+
+            <Link href="/login">
+              <Button variant="outline" className="w-full">
+                Ir a iniciar sesión
+              </Button>
+            </Link>
+          </CardContent>
+        </Card>
+      </div>
+    )
+  }
+
+  if (success) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background-secondary p-4">
+        <Card className="w-full max-w-sm animate-scale-in">
+          <CardHeader className="space-y-3 text-center pb-2">
+            <div className="flex justify-center">
+              <div className="p-3 bg-success/10 rounded-xl">
+                <CheckCircle2 className="h-6 w-6 text-success" />
+              </div>
+            </div>
+            <CardTitle className="text-xl">¡Registro exitoso!</CardTitle>
+            <CardDescription>
+              Se ha enviado un correo de confirmación a tu email
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="p-4 bg-background-tertiary rounded-lg text-center">
+              <p className="text-sm text-foreground-secondary">
+                Por favor, revisa tu bandeja de entrada y confirma tu email antes de iniciar sesión.
+              </p>
+            </div>
+
+            <Link href="/login">
+              <Button className="w-full">
+                Ir a iniciar sesión
+              </Button>
+            </Link>
+          </CardContent>
+        </Card>
+      </div>
+    )
   }
 
   return (
@@ -101,9 +202,9 @@ export function SignupForm() {
               <Clock className="h-6 w-6 text-accent" />
             </div>
           </div>
-          <CardTitle className="text-xl">Crear Cuenta</CardTitle>
+          <CardTitle className="text-xl">Registro de Administrador</CardTitle>
           <CardDescription>
-            Regístrate en HoursTracker
+            Crea la cuenta de administrador principal
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -169,39 +270,34 @@ export function SignupForm() {
             </div>
 
             <div className="flex items-center gap-2 pt-2">
-              <input
-                type="checkbox"
-                id="isAdmin"
-                checked={isAdmin}
-                onChange={(e) => setIsAdmin(e.target.checked)}
-                className="w-4 h-4 rounded border-border text-accent focus:ring-accent"
-              />
-              <label htmlFor="isAdmin" className="text-sm text-foreground-secondary flex items-center gap-1">
-                <Shield className="h-3 w-3" />
-                Registrar como administrador
-              </label>
+              <div className="flex items-center gap-2 p-3 bg-accent/10 rounded-lg border border-accent/20 w-full">
+                <Shield className="h-4 w-4 text-accent flex-shrink-0" />
+                <div className="flex-1">
+                  <p className="text-sm font-medium text-accent">Cuenta de Administrador</p>
+                  <p className="text-xs text-foreground-secondary">Esta será la cuenta principal del sistema</p>
+                </div>
+                <CheckCircle2 className="h-4 w-4 text-accent flex-shrink-0" />
+              </div>
             </div>
 
-            {isAdmin && (
-              <div className="space-y-1.5 animate-fade-in">
-                <label htmlFor="adminCode" className="text-xs font-medium text-foreground-secondary">
-                  Código de administrador
-                </label>
-                <Input
-                  id="adminCode"
-                  name="adminCode"
-                  type="password"
-                  placeholder="Código secreto"
-                  required={isAdmin}
-                  disabled={isLoading}
-                  value={adminCode}
-                  onChange={(e) => setAdminCode(e.target.value)}
-                />
-                <p className="text-[10px] text-foreground-secondary">
-                  Este código se proporciona durante la configuración inicial
-                </p>
-              </div>
-            )}
+            <div className="space-y-1.5">
+              <label htmlFor="adminCode" className="text-xs font-medium text-foreground-secondary">
+                Código de administrador
+              </label>
+              <Input
+                id="adminCode"
+                name="adminCode"
+                type="password"
+                placeholder="Código secreto"
+                required
+                disabled={isLoading}
+                value={adminCode}
+                onChange={(e) => setAdminCode(e.target.value)}
+              />
+              <p className="text-[10px] text-foreground-secondary">
+                Este código se proporcionó durante la configuración inicial
+              </p>
+            </div>
 
             {error && (
               <div className="p-3 text-sm text-error bg-error-muted rounded-md border border-error/20">
@@ -218,7 +314,7 @@ export function SignupForm() {
               ) : (
                 <>
                   <User className="h-4 w-4 mr-2" />
-                  Crear cuenta
+                  Crear cuenta de administrador
                 </>
               )}
             </Button>

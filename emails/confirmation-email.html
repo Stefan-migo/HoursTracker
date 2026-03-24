@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Confirma tu correo - HoursTracker</title>
+</head>
+<body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background-color: #f5f5f7; color: #1d1d1f; line-height: 1.5;">
+  
+  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background-color: #f5f5f7;">
+    <tr>
+      <td align="center" style="padding: 48px 24px;">
+        
+        <!-- Main Card -->
+        <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width: 480px; background-color: #ffffff; border-radius: 20px; box-shadow: 0 4px 24px rgba(0, 0, 0, 0.08); overflow: hidden;">
+          
+          <!-- Header -->
+          <tr>
+            <td style="background: linear-gradient(135deg, #0a84ff 0%, #0066cc 100%); padding: 40px 32px; text-align: center;">
+              <div style="display: inline-block; background-color: rgba(255, 255, 255, 0.2); border-radius: 16px; padding: 16px; margin-bottom: 16px;">
+                <svg width="40" height="40" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style="display: block;">
+                  <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z" fill="#ffffff"/>
+                </svg>
+              </div>
+              <h1 style="margin: 0; font-size: 24px; font-weight: 700; color: #ffffff; letter-spacing: -0.5px;">
+                ¡Bienvenido a HoursTracker!
+              </h1>
+            </td>
+          </tr>
+          
+          <!-- Body -->
+          <tr>
+            <td style="padding: 40px 32px;">
+              
+              <p style="margin: 0 0 24px 0; font-size: 16px; color: #1d1d1f;">
+                Hola <strong>{{user_name}}</strong>,
+              </p>
+              
+              <p style="margin: 0 0 24px 0; font-size: 15px; color: #424245; line-height: 1.6;">
+                Gracias por registrarte en <strong>HoursTracker</strong>. Tu cuenta de administrador ha sido creada exitosamente.
+              </p>
+              
+              <p style="margin: 0 0 32px 0; font-size: 15px; color: #424245; line-height: 1.6;">
+                Por favor, confirma tu dirección de correo electrónico haciendo clic en el siguiente botón:
+              </p>
+              
+              <!-- CTA Button -->
+              <div style="text-align: center; margin-bottom: 32px;">
+                <a href="{{confirmation_url}}" style="display: inline-block; background: linear-gradient(135deg, #0a84ff 0%, #0066cc 100%); color: #ffffff; text-decoration: none; font-size: 16px; font-weight: 600; padding: 16px 32px; border-radius: 12px; box-shadow: 0 4px 12px rgba(10, 132, 255, 0.4);">
+                  Confirmar correo electrónico
+                </a>
+              </div>
+              
+              <!-- Alternative Link -->
+              <div style="background-color: #f5f5f7; border-radius: 12px; padding: 20px; margin-bottom: 24px;">
+                <p style="margin: 0 0 8px 0; font-size: 13px; color: #98989d; text-transform: uppercase; letter-spacing: 0.5px;">
+                  O copia y pega este enlace en tu navegador:
+                </p>
+                <p style="margin: 0; font-size: 13px; color: #0a84ff; word-break: break-all;">
+                  {{confirmation_url}}
+                </p>
+              </div>
+              
+              <!-- Info Box -->
+              <div style="border-left: 4px solid #30d158; padding-left: 16px; margin-bottom: 24px;">
+                <p style="margin: 0 0 8px 0; font-size: 14px; font-weight: 600; color: #1d1d1f;">
+                  ¿Qué puedes hacer como administrador?
+                </p>
+                <ul style="margin: 0; padding-left: 20px; font-size: 14px; color: #424245;">
+                  <li style="margin-bottom: 4px;">Gestionar empleados y sus horarios</li>
+                  <li style="margin-bottom: 4px;">Importar registros de tiempo desde Excel</li>
+                  <li style="margin-bottom: 4px;">Revisar y resolver disputas</li>
+                  <li>Ver reportes y estadísticas</li>
+                </ul>
+              </div>
+              
+              <p style="margin: 0; font-size: 14px; color: #98989d;">
+                Si no solicitaste este registro, puedes ignorar este correo. Tu cuenta no será activada hasta que confirmes tu email.
+              </p>
+              
+            </td>
+          </tr>
+          
+          <!-- Divider -->
+          <tr>
+            <td style="padding: 0 32px;">
+              <div style="height: 1px; background-color: #e5e5ea;"></div>
+            </td>
+          </tr>
+          
+          <!-- Footer -->
+          <tr>
+            <td style="padding: 32px; text-align: center;">
+              <p style="margin: 0 0 8px 0; font-size: 14px; color: #1d1d1f; font-weight: 600;">
+                HoursTracker
+              </p>
+              <p style="margin: 0; font-size: 13px; color: #98989d;">
+                Este es un correo automático. Por favor, no respondas a este mensaje.
+              </p>
+              <p style="margin: 16px 0 0 0; font-size: 12px; color: #c7c7cc;">
+                © 2026 HoursTracker. Todos los derechos reservados.
+              </p>
+            </td>
+          </tr>
+          
+        </table>
+        
+        <!-- Additional Info -->
+        <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width: 480px; margin-top: 24px;">
+          <tr>
+            <td style="text-align: center; padding: 0 16px;">
+              <p style="margin: 0 0 8px 0; font-size: 12px; color: #98989d;">
+                ¿Necesitas ayuda?
+              </p>
+              <p style="margin: 0; font-size: 12px; color: #c7c7cc;">
+                Contacta al soporte técnico de tu organización.
+              </p>
+            </td>
+          </tr>
+        </table>
+        
+      </td>
+    </tr>
+  </table>
+  
+</body>
+</html>

@@ -1,7 +1,6 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { useRouter } from 'next/navigation'
 import {
   EmployeeHeader,
   ClockInCard,
@@ -17,7 +16,6 @@ interface EmployeeDashboardClientProps {
 }
 
 export function EmployeeDashboardClient({ userName }: EmployeeDashboardClientProps) {
-  const router = useRouter()
   const [currentTime, setCurrentTime] = useState(new Date())
   
   const {
@@ -25,9 +23,9 @@ export function EmployeeDashboardClient({ userName }: EmployeeDashboardClientPro
     isLoading: isLoadingToday,
     actionLoading,
     canEdit,
-    handleClockIn,
     handleClockOut,
     updateManual,
+    createPartialRecord,
   } = useTodayLog()
 
   const {
@@ -58,13 +56,12 @@ export function EmployeeDashboardClient({ userName }: EmployeeDashboardClientPro
         clockIn={todayLog?.clock_in || null}
         clockOut={todayLog?.clock_out || null}
         totalHours={todayLog?.total_hours || null}
-        userName={userName}
         isLoading={isLoadingToday}
         actionLoading={actionLoading}
         canEdit={canEdit}
-        onClockIn={handleClockIn}
         onClockOut={handleClockOut}
         onUpdateManual={updateManual}
+        onCreateRecord={createPartialRecord}
       />
 
       {/* Status Grid */}

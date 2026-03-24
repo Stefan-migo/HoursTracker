@@ -22,20 +22,21 @@ export interface ManualUpdateData {
 interface UseTodayLogReturn {
   todayLog: TodayLog | null
   isLoading: boolean
-  actionLoading: 'clock_in' | 'clock_out' | 'update' | null
+  actionLoading: 'clock_in' | 'clock_out' | 'update' | 'create' | null
   isUpdating: boolean
   canEdit: boolean
   fetchTodayLog: () => Promise<void>
   handleClockIn: () => Promise<void>
   handleClockOut: () => Promise<void>
   updateManual: (data: ManualUpdateData) => Promise<boolean>
+  createPartialRecord: (data: { clockIn?: string; clockOut?: string }) => Promise<boolean>
   refresh: () => Promise<void>
 }
 
 export function useTodayLog(): UseTodayLogReturn {
   const [todayLog, setTodayLog] = useState<TodayLog | null>(null)
   const [isLoading, setIsLoading] = useState(true)
-  const [actionLoading, setActionLoading] = useState<'clock_in' | 'clock_out' | 'update' | null>(null)
+  const [actionLoading, setActionLoading] = useState<'clock_in' | 'clock_out' | 'update' | 'create' | null>(null)
 
   const calculateTotalHours = (clockIn: string | null, clockOut: string | null): number | null => {
     if (!clockIn || !clockOut) return null
@@ -48,11 +49,10 @@ export function useTodayLog(): UseTodayLogReturn {
   const fetchTodayLog = useCallback(async () => {
     try {
       setIsLoading(true)
-      const res = await fetch('/api/time-logs/today')
+      const res = await fetch('/api/time-logs/today?source=personal')
       if (res.ok) {
         const data = await res.json()
         
-        // Calcular total_hours manualmente si es null pero hay clock_in y clock_out
         if (data && data.total_hours === null && data.clock_in && data.clock_out) {
           data.total_hours = calculateTotalHours(data.clock_in, data.clock_out)
         }
@@ -113,10 +113,56 @@ export function useTodayLog(): UseTodayLogReturn {
     }
   }
 
-  /**
-   * Actualiza el registro manualmente
-   * Permite editar horas de entrada/salida manualmente
-   */
+  const createPartialRecord = useCallback(async (data: { clockIn?: string; clockOut?: string }): Promise<boolean> => {
+    if (!data.clockIn) {
+      toast.error('La hora de entrada es requerida')
+      return false
+    }
+
+    setActionLoading('create')
+    try {
+      const today = new Date().toISOString().split('T')[0]
+      const clockInISO = new Date(data.clockIn).toISOString()
+      
+      const body: Record<string, unknown> = {
+        date: today,
+        clock_in: clockInISO,
+        is_manual: true,
+        is_official: false,
+      }
+
+      if (data.clockOut) {
+        body.clock_out = new Date(data.clockOut).toISOString()
+      }
+
+      const res = await fetch('/api/time-logs', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      })
+
+      if (res.ok) {
+        toast.success('Registro creado', {
+          description: data.clockOut 
+            ? 'Entrada y salida registradas' 
+            : 'Entrada registrada. Puedes agregar la salida más tarde.',
+        })
+        await fetchTodayLog()
+        return true
+      } else {
+        const errorData = await res.json().catch(() => ({}))
+        toast.error(errorData.error || 'Error al crear el registro')
+        return false
+      }
+    } catch (error) {
+      console.error('Error creating record:', error)
+      toast.error('Error al crear el registro')
+      return false
+    } finally {
+      setActionLoading(null)
+    }
+  }, [fetchTodayLog])
+
   const updateManual = useCallback(async (data: ManualUpdateData): Promise<boolean> => {
     if (!todayLog?.id) {
       toast.error('No hay registro para actualizar')
@@ -158,9 +204,7 @@ export function useTodayLog(): UseTodayLogReturn {
     await fetchTodayLog()
   }
 
-  // Determinar si se puede editar el registro
-  // Por ahora permitimos editar si el registro existe
-  const canEdit = Boolean(todayLog?.id)
+  const canEdit = true
 
   useEffect(() => {
     fetchTodayLog()
@@ -176,6 +220,7 @@ export function useTodayLog(): UseTodayLogReturn {
     handleClockIn,
     handleClockOut,
     updateManual,
+    createPartialRecord,
     refresh,
   }
 }

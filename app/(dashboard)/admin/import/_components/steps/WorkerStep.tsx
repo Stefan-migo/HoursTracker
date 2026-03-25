@@ -7,37 +7,37 @@ import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import { UserPlus, Mail, Users } from 'lucide-react'
 import type { UseImportWizardReturn } from '@/lib/hooks/useImportWizard'
-import type { NewEmployee } from '@/lib/import/types'
+import type { NewWorker } from '@/lib/import/types'
 
 interface WorkerStepProps {
   wizard: UseImportWizardReturn
 }
 
 export function WorkerStep({ wizard }: WorkerStepProps) {
-  const { state, updateNewEmployee } = wizard
+  const { state, updateNewWorker } = wizard
   const [selectAllCreate, setSelectAllCreate] = useState(false)
   const [selectAllInvite, setSelectAllInvite] = useState(false)
 
   const handleSelectAllCreate = (checked: boolean) => {
     setSelectAllCreate(checked)
-    state.newEmployees.forEach(emp => {
-      updateNewEmployee(emp.email, { createProfile: checked })
+    state.newWorkers.forEach(emp => {
+      updateNewWorker(emp.email, { createProfile: checked })
     })
   }
 
   const handleSelectAllInvite = (checked: boolean) => {
     setSelectAllInvite(checked)
-    state.newEmployees.forEach(emp => {
+    state.newWorkers.forEach(emp => {
       if (emp.createProfile) {
-        updateNewEmployee(emp.email, { sendInvitation: checked })
+        updateNewWorker(emp.email, { sendInvitation: checked })
       }
     })
   }
 
-  const employeesToCreate = state.newEmployees.filter(e => e.createProfile).length
-  const employeesToInvite = state.newEmployees.filter(e => e.createProfile && e.sendInvitation).length
+  const workersToCreate = state.newWorkers.filter(e => e.createProfile).length
+  const workersToInvite = state.newWorkers.filter(e => e.createProfile && e.sendInvitation).length
 
-  if (state.newEmployees.length === 0) {
+  if (state.newWorkers.length === 0) {
     return (
       <Card className="bg-background border-border">
         <CardContent className="p-8 text-center">
@@ -60,7 +60,7 @@ export function WorkerStep({ wizard }: WorkerStepProps) {
           <strong>Trabajadores nuevos detectados</strong>
         </p>
         <p className="text-sm text-accent/80 mt-1">
-          Se encontraron {state.newEmployees.length} emails que no existen en el sistema. 
+          Se encontraron {state.newWorkers.length} emails que no existen en el sistema. 
           Selecciona cuáles deseas crear y si deseas enviarles invitación.
         </p>
       </div>
@@ -78,7 +78,7 @@ export function WorkerStep({ wizard }: WorkerStepProps) {
           <Checkbox
             checked={selectAllInvite}
             onCheckedChange={handleSelectAllInvite}
-            disabled={employeesToCreate === 0}
+            disabled={workersToCreate === 0}
           />
           <span className="text-sm">Enviar invitación a todos</span>
         </label>
@@ -88,17 +88,17 @@ export function WorkerStep({ wizard }: WorkerStepProps) {
       <div className="flex gap-4">
         <Badge variant="secondary" className="text-xs">
           <UserPlus className="h-3 w-3 mr-1" />
-          {employeesToCreate} por crear
+          {workersToCreate} por crear
         </Badge>
         <Badge variant="secondary" className="text-xs">
           <Mail className="h-3 w-3 mr-1" />
-          {employeesToInvite} invitaciones
+          {workersToInvite} invitaciones
         </Badge>
       </div>
 
       {/* Employee Cards */}
       <div className="space-y-4 max-h-[400px] overflow-y-auto">
-        {state.newEmployees.map((employee) => (
+        {state.newWorkers.map((employee) => (
           <Card 
             key={employee.email}
             className={`
@@ -113,7 +113,7 @@ export function WorkerStep({ wizard }: WorkerStepProps) {
                   <Checkbox
                     checked={employee.createProfile}
                     onCheckedChange={(checked) => 
-                      updateNewEmployee(employee.email, { createProfile: checked as boolean })
+                      updateNewWorker(employee.email, { createProfile: checked as boolean })
                     }
                   />
                   <span className="font-medium">{employee.email}</span>
@@ -133,7 +133,7 @@ export function WorkerStep({ wizard }: WorkerStepProps) {
                     <Input
                       value={employee.fullName}
                       onChange={(e) => 
-                        updateNewEmployee(employee.email, { fullName: e.target.value })
+                        updateNewWorker(employee.email, { fullName: e.target.value })
                       }
                       placeholder="Ej: Juan Pérez"
                       className={!employee.fullName.trim() ? 'border-error' : ''}
@@ -147,7 +147,7 @@ export function WorkerStep({ wizard }: WorkerStepProps) {
                     <Checkbox
                       checked={employee.sendInvitation}
                       onCheckedChange={(checked) => 
-                        updateNewEmployee(employee.email, { sendInvitation: checked as boolean })
+                        updateNewWorker(employee.email, { sendInvitation: checked as boolean })
                       }
                     />
                     <span className="text-sm">Enviar email de invitación</span>

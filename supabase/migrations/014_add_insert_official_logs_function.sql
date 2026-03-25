@@ -3,11 +3,10 @@
 
 -- Create a function with SECURITY DEFINER to bypass the validate_time_log_insert trigger
 CREATE OR REPLACE FUNCTION public.insert_official_time_logs(time_logs_array JSONB)
-RETURNS SETOF time_logs AS $$
+RETURNS VOID AS $$
 DECLARE
   log_entry JSONB;
 BEGIN
-  -- Set admin import flag to bypass trigger validation
   PERFORM set_config('app.is_admin_import', 'true', true);
   
   FOR log_entry IN SELECT * FROM jsonb_array_elements(time_logs_array)
@@ -33,10 +32,7 @@ BEGIN
     ) ON CONFLICT (user_id, date, is_official) DO NOTHING;
   END LOOP;
   
-  -- Reset admin import flag
   PERFORM set_config('app.is_admin_import', 'false', true);
-  
-  RETURN;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 

@@ -4,16 +4,32 @@ import { useState, useEffect, useMemo, useCallback } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { AlertCircle, Check, ChevronLeft, ChevronRight, LayoutGrid, Table2 } from 'lucide-react'
+import { AlertCircle, Check, ChevronLeft, ChevronRight, LayoutGrid, Table2, Sparkles, Loader2 } from 'lucide-react'
 import { FormatDetector } from '@/lib/detectors/FormatDetector'
 import { DataTransformer } from '@/lib/transformers/DataTransformer'
 import type { TransformedRecord, FormatDetectionResult } from '@/lib/transformers/types'
+import type { TransformedRecord as AIRecord } from '@/lib/ai/import-agent/types'
+
+type AIStatus = 'idle' | 'analyzing' | 'success' | 'error'
 
 interface TransformStepProps {
   headers: string[]
   rows: Record<string, string>[]
   onTransformComplete: (records: TransformedRecord[]) => void
   onBack: () => void
+}
+
+function adaptAIRecord(aiRecord: AIRecord): TransformedRecord {
+  return {
+    email: aiRecord.email,
+    fullName: aiRecord.fullName,
+    date: aiRecord.date,
+    clockIn: aiRecord.clockIn,
+    clockOut: aiRecord.clockOut,
+    rawData: aiRecord.rawData,
+    isValid: aiRecord.isValid,
+    errors: aiRecord.issues
+  }
 }
 
 export function TransformStep({ headers, rows, onTransformComplete, onBack }: TransformStepProps) {
@@ -23,6 +39,8 @@ export function TransformStep({ headers, rows, onTransformComplete, onBack }: Tr
   const [manualFormat, setManualFormat] = useState<'horizontal' | 'vertical'>('horizontal')
   const [currentPage, setCurrentPage] = useState(0)
   const [isProcessing, setIsProcessing] = useState(false)
+  const [aiStatus, setAiStatus] = useState<AIStatus>('idle')
+  const [aiError, setAIError] = useState<string | null>(null)
 
   // Detectar formato automáticamente al cargar - usando requestAnimationFrame
   useEffect(() => {
@@ -104,6 +122,69 @@ export function TransformStep({ headers, rows, onTransformComplete, onBack }: Tr
     onTransformComplete(transformedRecords)
   }, [onTransformComplete, transformedRecords])
 
+  const handleAIAnalysis = useCallback(async () => {
+    console.log('[AI Import] Starting analysis...')
+    console.log('[AI Import] Headers:', headers)
+    console.log('[AI Import] Rows count:', rows.length)
+    console.log('[AI Import] Sample row:', rows[0])
+    setAiStatus('analyzing')
+    setAIError(null)
+
+    try {
+      const payload = {
+        headers,
+        rows,
+        options: {
+          skipEmptyHours: true,
+          validateEmail: true
+        }
+      }
+
+      console.log('[AI Import] Sending JSON payload...')
+      const response = await fetch('/api/ai/import-agent', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      })
+
+      console.log('[AI Import] Response status:', response.status)
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.error || 'Error en el análisis de IA')
+      }
+
+      const result = await response.json()
+      console.log('[AI Import] Result success:', result.success)
+      console.log('[AI Import] Result transformedRecords count:', result.transformedRecords?.length)
+
+      if (!result.success) {
+        throw new Error(result.error || 'El análisis de IA falló')
+      }
+
+      const adaptedRecords = (result.transformedRecords || []).map(adaptAIRecord)
+      console.log('[AI Import] Adapted records count:', adaptedRecords.length)
+      setTransformedRecords(adaptedRecords)
+
+      if (result.format) {
+        const newFormat: FormatDetectionResult = {
+          type: result.format.type,
+          confidence: result.format.confidence / 100,
+          message: result.format.reasoning
+        }
+        setFormat(newFormat)
+      }
+
+      console.log('[AI Import] Setting status to success')
+      setAiStatus('success')
+
+    } catch (err) {
+      console.error('[AI Import] Error:', err)
+      setAIError(err instanceof Error ? err.message : 'Error desconocido en el análisis de IA')
+      setAiStatus('error')
+    }
+  }, [headers, rows])
+
   const previewRecords = transformedRecords.slice(currentPage * 10, (currentPage + 1) * 10)
   const totalPages = Math.ceil(transformedRecords.length / 10)
 
@@ -117,6 +198,12 @@ export function TransformStep({ headers, rows, onTransformComplete, onBack }: Tr
               <div className="space-y-2">
                 <div className="flex items-center gap-3">
                   <h3 className="text-lg font-semibold">Formato Detectado</h3>
+                  {aiStatus === 'success' && (
+                    <Badge className="bg-accent">
+                      <Sparkles className="h-3 w-3 mr-1" />
+                      IA
+                    </Badge>
+                  )}
                   <Badge className={getConfidenceColor(format.confidence)}>
                     Confianza: {getConfidenceLabel(format.confidence)}
                   </Badge>
@@ -188,6 +275,83 @@ export function TransformStep({ headers, rows, onTransformComplete, onBack }: Tr
             )}
           </CardContent>
         </Card>
+      )}
+
+      {/* AI Analysis Card - shown when NOT success */}
+      {format && format.confidence < 0.7 && aiStatus !== 'success' && (
+        <Card className="border-accent/50 bg-accent/5">
+          <CardContent className="p-6">
+            {aiStatus === 'idle' && (
+              <div className="flex items-center justify-between">
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2">
+                    <Sparkles className="h-5 w-5 text-accent" />
+                    <h3 className="text-lg font-semibold">Análisis con Inteligencia Artificial</h3>
+                  </div>
+                  <p className="text-sm text-foreground-secondary">
+                    La detección automática tiene baja confianza. Usa IA para analizar el archivo
+                    y detectar automáticamente el formato correcto.
+                  </p>
+                </div>
+                <Button
+                  variant="default"
+                  size="lg"
+                  onClick={handleAIAnalysis}
+                  className="gap-2"
+                >
+                  <Sparkles className="h-4 w-4" />
+                  Analizar con IA
+                </Button>
+              </div>
+            )}
+            {aiStatus === 'analyzing' && (
+              <div className="flex items-center justify-center gap-4 py-4">
+                <Loader2 className="h-6 w-6 animate-spin text-accent" />
+                <div>
+                  <p className="font-medium">Analizando archivo con IA...</p>
+                  <p className="text-sm text-foreground-secondary">
+                    Detectando formato y transformando datos
+                  </p>
+                </div>
+              </div>
+            )}
+            {aiStatus === 'error' && (
+              <div className="flex items-center gap-3">
+                <AlertCircle className="h-5 w-5 text-error" />
+                <div className="flex-1">
+                  <p className="font-medium text-error">Error en el análisis de IA</p>
+                  <p className="text-sm text-error/80">{aiError}</p>
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleAIAnalysis}
+                  className="gap-2"
+                >
+                  <Sparkles className="h-4 w-4" />
+                  Reintentar
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setAiStatus('idle')}
+                >
+                  Cerrar
+                </Button>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
+      {/* AI Success Badge - shown only when success */}
+      {aiStatus === 'success' && transformedRecords.length > 0 && (
+        <div className="flex items-center gap-2 p-3 bg-success/10 border border-success/20 rounded-lg">
+          <Sparkles className="h-4 w-4 text-success" />
+          <p className="text-sm text-success font-medium">
+            Transformación completada con inteligencia artificial
+          </p>
+        </div>
       )}
 
       {/* Estadísticas de Transformación */}

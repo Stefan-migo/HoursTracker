@@ -10,7 +10,7 @@ interface TimeLogInput {
   row?: number
 }
 
-interface EmployeeInput {
+interface WorkerInput {
   email: string
   fullName: string
   sendInvitation: boolean
@@ -19,7 +19,7 @@ interface EmployeeInput {
 
 interface ImportRequest {
   records: TimeLogInput[]
-  employees: EmployeeInput[]
+  workers: WorkerInput[]
 }
 
 interface TimeLogRecord {
@@ -142,7 +142,7 @@ export async function POST(request: Request) {
 
   try {
     const body: ImportRequest = await request.json()
-    const { records, employees } = body
+    const { records, workers } = body
 
     if (!records || !Array.isArray(records)) {
       return NextResponse.json({ error: 'Datos inválidos' }, { status: 400 })
@@ -152,14 +152,14 @@ export async function POST(request: Request) {
       imported: 0,
       failed: 0,
       skipped: 0,
-      employeesCreated: 0,
+      workersCreated: 0,
       invitationsSent: 0,
       errors: [] as { row: number; email: string; error: string }[]
     }
 
-    // 1. Crear empleados nuevos si hay
-    if (employees && employees.length > 0) {
-      for (const emp of employees) {
+    // 1. Crear trabajadores nuevos si hay
+    if (workers && workers.length > 0) {
+      for (const emp of workers) {
         if (!emp.fullName?.trim()) continue
 
         try {
@@ -189,13 +189,13 @@ export async function POST(request: Request) {
                   id: user.id,
                   email: emp.email.toLowerCase(),
                   full_name: emp.fullName.trim(),
-                  role: 'worker',
+                  role: 'employee',
                   is_active: true,
                   invitation_status: emp.sendInvitation ? 'active' : 'pending'
                 })
 
               if (!profileError) {
-                result.employeesCreated++
+                result.workersCreated++
                 if (emp.sendInvitation) {
                   result.invitationsSent++
                 }
@@ -258,7 +258,7 @@ export async function POST(request: Request) {
               .eq('id', newUserId)
           }
 
-          result.employeesCreated++
+          result.workersCreated++
 
           if (emp.sendInvitation) {
             result.invitationsSent++
@@ -328,8 +328,12 @@ export async function POST(request: Request) {
       })
       .map(log => {
         const userId = emailToId.get(log.email.toLowerCase())!
-        const clockInDate = `${log.date}T${log.clockIn}:00`
-        const clockOutDate = `${log.date}T${log.clockOut}:00`
+        const clockInDate = log.clockIn.includes('T') 
+          ? log.clockIn 
+          : `${log.date}T${log.clockIn}:00`
+        const clockOutDate = log.clockOut.includes('T') 
+          ? log.clockOut 
+          : `${log.date}T${log.clockOut}:00`
         
         let hoursDiff = 0
         try {

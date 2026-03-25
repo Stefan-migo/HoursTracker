@@ -6,7 +6,7 @@ import type {
   WizardState, 
   ColumnMapping, 
   PreviewRecord,
-  NewEmployee,
+  NewWorker,
   ImportResult 
 } from '@/lib/import/types'
 import type { TransformedRecord } from '@/lib/transformers/types'
@@ -17,7 +17,7 @@ const initialState: WizardState = {
   fileData: null,
   columnMapping: [],
   previewRecords: [],
-  newEmployees: [],
+  newWorkers: [],
   importResult: null,
   isLoading: false,
   error: null
@@ -33,8 +33,8 @@ export interface UseImportWizardReturn {
   setColumnMapping: (mapping: ColumnMapping[]) => void
   updateColumnMapping: (sourceColumn: string, targetField: string | null) => void
   setPreviewRecords: (records: PreviewRecord[]) => void
-  setNewEmployees: (employees: NewEmployee[]) => void
-  updateNewEmployee: (email: string, updates: Partial<NewEmployee>) => void
+  setNewWorkers: (workers: NewWorker[]) => void
+  updateNewWorker: (email: string, updates: Partial<NewWorker>) => void
   setImportResult: (result: ImportResult | null) => void
   setLoading: (isLoading: boolean) => void
   setError: (error: string | null) => void
@@ -96,14 +96,14 @@ export function useImportWizard(): UseImportWizardReturn {
     setState(prev => ({ ...prev, previewRecords: records }))
   }, [])
 
-  const setNewEmployees = useCallback((employees: NewEmployee[]) => {
-    setState(prev => ({ ...prev, newEmployees: employees }))
+  const setNewWorkers = useCallback((workers: NewWorker[]) => {
+    setState(prev => ({ ...prev, newWorkers: workers }))
   }, [])
 
-  const updateNewEmployee = useCallback((email: string, updates: Partial<NewEmployee>) => {
+  const updateNewWorker = useCallback((email: string, updates: Partial<NewWorker>) => {
     setState(prev => ({
       ...prev,
-      newEmployees: prev.newEmployees.map(emp =>
+      newWorkers: prev.newWorkers.map(emp =>
         emp.email === email ? { ...emp, ...updates } : emp
       )
     }))
@@ -154,7 +154,7 @@ export function useImportWizard(): UseImportWizardReturn {
       sendInvitation: false
     }))
     
-    setState(prev => ({ ...prev, newEmployees: newEmps }))
+    setState(prev => ({ ...prev, newWorkers: newEmps }))
   }, [])
 
   const canProceedToNext = useCallback(() => {
@@ -186,8 +186,8 @@ export function useImportWizard(): UseImportWizardReturn {
     setColumnMapping,
     updateColumnMapping,
     setPreviewRecords,
-    setNewEmployees,
-    updateNewEmployee,
+    setNewWorkers,
+    updateNewWorker,
     setImportResult,
     setLoading,
     setError,

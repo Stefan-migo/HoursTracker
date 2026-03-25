@@ -4,6 +4,7 @@ import { createClient } from '@/lib/supabase/server'
 import { Clock, User, LayoutDashboard, Users, FileSpreadsheet, AlertTriangle, Clock4 } from 'lucide-react'
 import { LogoutButton } from './logout-button'
 import { ThemeSwitch } from '@/components/theme-switch'
+import { TooltipProvider } from '@/components/ui/tooltip'
 import { Suspense } from 'react'
 
 async function getUser() {
@@ -22,7 +23,7 @@ async function getUser() {
 
   return {
     userName: profile?.full_name || null,
-    userRole: profile?.role || 'worker'
+    userRole: profile?.role || 'employee'
   }
 }
 
@@ -83,7 +84,7 @@ export default async function DashboardRootLayout({
         <aside className="hidden md:flex w-64 bg-background-secondary border-r border-border min-h-[calc(100vh-3.5rem)]">
           <nav className="flex flex-col gap-1 p-4 w-full">
             <Link
-              href={`/${userRole}`}
+              href={userRole === 'admin' ? '/admin' : '/worker'}
               className="flex items-center gap-3 px-3 py-2.5 text-sm font-medium rounded-md transition-all duration-200 text-foreground-secondary hover:bg-background-tertiary hover:text-foreground"
             >
               <LayoutDashboard className="h-4 w-4" />
@@ -121,7 +122,7 @@ export default async function DashboardRootLayout({
                 </Link>
               </>
             )}
-            {userRole === 'worker' && (
+            {(userRole === 'employee' || userRole === 'worker') && (
               <>
                 <Link
                   href="/worker/my-logs"
@@ -143,7 +144,9 @@ export default async function DashboardRootLayout({
         </aside>
 
         <main className="flex-1 p-4 sm:p-6 lg:p-8 max-w-full overflow-x-hidden">
-          {children}
+          <TooltipProvider delayDuration={0}>
+            {children}
+          </TooltipProvider>
         </main>
       </div>
     </div>

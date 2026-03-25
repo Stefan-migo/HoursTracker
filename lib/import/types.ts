@@ -30,7 +30,7 @@ export interface PreviewRecord {
   isValid: boolean
 }
 
-export interface NewEmployee {
+export interface NewWorker {
   email: string
   fullName: string
   rowNumbers: number[]
@@ -42,7 +42,7 @@ export interface ImportResult {
   imported: number
   failed: number
   skipped: number
-  employeesCreated: number
+  workersCreated: number
   invitationsSent: number
   error?: string
   errors?: { row: number; email: string; error: string }[]
@@ -58,7 +58,7 @@ export interface WizardState {
   } | null
   columnMapping: ColumnMapping[]
   previewRecords: PreviewRecord[]
-  newEmployees: NewEmployee[]
+  newWorkers: NewWorker[]
   importResult: ImportResult | null
   isLoading: boolean
   error: string | null

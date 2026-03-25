@@ -1,7 +1,7 @@
 export type Profile = {
   id: string
   full_name: string
-  role: 'worker' | 'admin'
+  role: 'employee' | 'admin'
   is_active: boolean
   email: string
   created_at: string

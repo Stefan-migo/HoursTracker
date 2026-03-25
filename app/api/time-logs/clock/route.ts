@@ -5,8 +5,8 @@ import { localDateTimeToUTC } from '@/lib/utils'
 import { z } from 'zod'
 
 const clockRequestSchema = z.object({
-  action: z.enum(['clock_in', 'clock_out'], {
-    message: 'Acción requerida: clock_in o clock_out',
+  action: z.enum(['clock_in', 'clock_out', 'clock_full'], {
+    message: 'Acción requerida: clock_in, clock_out o clock_full',
   }),
   user_id: z.string().uuid().optional(),
   date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
@@ -223,6 +223,65 @@ export async function POST(request: Request) {
 
       if (error) {
         console.error('Update error:', error)
+        const { message, status } = handleSupabaseError(error)
+        return NextResponse.json({ error: message }, { status })
+      }
+
+      return NextResponse.json(data)
+
+    } else if (action === 'clock_full') {
+      if (!is_manual || !clock_in || !clock_out) {
+        return NextResponse.json(
+          { error: 'clock_full requiere is_manual=true, clock_in y clock_out' },
+          { status: 400 }
+        )
+      }
+
+      const localClockIn = new Date(clock_in)
+      const localClockOut = new Date(clock_out)
+
+      if (isNaN(localClockIn.getTime()) || isNaN(localClockOut.getTime())) {
+        return NextResponse.json(
+          { error: 'Horas inválidas' },
+          { status: 400 }
+        )
+      }
+
+      if (localClockOut <= localClockIn) {
+        return NextResponse.json(
+          { error: 'La hora de salida debe ser posterior a la hora de entrada' },
+          { status: 400 }
+        )
+      }
+
+      const diffMs = localClockOut.getTime() - localClockIn.getTime()
+      const totalHours = Math.round((diffMs / (1000 * 60 * 60)) * 100) / 100
+
+      if (totalHours > 16) {
+        return NextResponse.json(
+          { error: 'El máximo permitido es 16 horas por jornada' },
+          { status: 400 }
+        )
+      }
+
+      const { data, error } = await supabase
+        .from('time_logs')
+        .insert({
+          user_id: targetUserId,
+          date: targetDate,
+          clock_in: localClockIn.toISOString(),
+          clock_out: localClockOut.toISOString(),
+          total_hours: totalHours,
+          is_official: isOfficial,
+          is_manual: true,
+          marked_by: user.id,
+          notes: notes || null,
+        })
+        .select()
+        .single()
+
+      if (error) {
+        console.error('Insert full log error:', error)
         const { message, status } = handleSupabaseError(error)
         return NextResponse.json({ error: message }, { status })
       }

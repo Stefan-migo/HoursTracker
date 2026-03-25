@@ -11,7 +11,7 @@ import { toast } from 'sonner'
 import { Spinner } from '@/components/ui/spinner'
 import Link from 'next/link'
 
-function CreatePasswordForm({ inviteToken }: { inviteToken: string }) {
+function CreatePasswordForm() {
   const [error, setError] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(false)
   const [success, setSuccess] = useState(false)
@@ -47,7 +47,6 @@ function CreatePasswordForm({ inviteToken }: { inviteToken: string }) {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          invite_token: inviteToken,
           password,
         }),
       })
@@ -64,9 +63,8 @@ function CreatePasswordForm({ inviteToken }: { inviteToken: string }) {
       toast.success('Contraseña configurada correctamente')
 
       if (result.auto_login && result.access_token) {
-        localStorage.setItem('sb-access-token', result.access_token)
-        router.push('/worker')
-        router.refresh()
+        const callbackUrl = `/auth/callback?access_token=${encodeURIComponent(result.access_token)}&refresh_token=${encodeURIComponent(result.refresh_token || '')}&type=invite`
+        router.push(callbackUrl)
       } else {
         setTimeout(() => {
           router.push('/login')
@@ -195,9 +193,15 @@ export function LoginForm() {
   const inviteToken = searchParams.get('invite')
   const confirmed = searchParams.get('confirmed')
   const confirmError = searchParams.get('error')
+  const fromInvite = searchParams.get('from_invite')
+  const inviteEmail = searchParams.get('email')
   
   if (inviteToken) {
-    return <CreatePasswordForm inviteToken={inviteToken} />
+    return <CreatePasswordForm />
+  }
+  
+  if (fromInvite === 'true') {
+    return <CreatePasswordForm />
   }
 
   if (confirmed === 'true') {

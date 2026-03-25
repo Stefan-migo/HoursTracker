@@ -93,7 +93,7 @@ export default function EmployeesPage() {
 
   async function fetchEmployees() {
     try {
-      const res = await fetch('/api/admin/employees')
+      const res = await fetch('/api/admin/workers')
       if (res.ok) {
         const data = await res.json()
         setEmployees(data)
@@ -135,7 +135,7 @@ export default function EmployeesPage() {
 
     setBulkActionLoading(true)
     try {
-      const res = await fetch('/api/admin/employees/bulk', {
+      const res = await fetch('/api/admin/workers/bulk', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -222,7 +222,7 @@ export default function EmployeesPage() {
     setActionLoading('updating')
     
     try {
-      const res = await fetch('/api/admin/employees', {
+      const res = await fetch('/api/admin/workers', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -250,11 +250,47 @@ export default function EmployeesPage() {
     }
   }
 
+  // Delete employee
+  async function handleDeleteEmployee() {
+    if (!editingEmployee) return
+    
+    if (!confirm(`¿Estás seguro de eliminar a ${editingEmployee.full_name}? Esta acción no se puede deshacer.`)) {
+      return
+    }
+    
+    setActionLoading('deleting')
+    
+    try {
+      const res = await fetch('/api/admin/workers/bulk', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ids: [editingEmployee.id],
+          action: 'delete',
+        }),
+      })
+      
+      if (res.ok) {
+        toast.success('Trabajador eliminado')
+        setShowEditModal(false)
+        setEditingEmployee(null)
+        await fetchEmployees()
+      } else {
+        const data = await res.json()
+        toast.error(data.error || 'Error al eliminar')
+      }
+    } catch (err) {
+      toast.error('Error al eliminar trabajador')
+    } finally {
+      setActionLoading(null)
+    }
+  }
+
   // Reset password
   async function handleResetPassword(email: string) {
     setActionLoading('resetting')
     try {
-      const res = await fetch('/api/admin/employees/reset-password', {
+      const res = await fetch('/api/admin/workers/reset-password', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email }),
@@ -280,7 +316,7 @@ export default function EmployeesPage() {
 
     setActionLoading('inviting')
     try {
-      const res = await fetch('/api/admin/employees/bulk', {
+      const res = await fetch('/api/admin/workers/bulk', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -739,17 +775,36 @@ export default function EmployeesPage() {
             </div>
             
             <div className="flex gap-3 pt-2">
-              <Button variant="outline" onClick={() => setShowEditModal(false)} className="flex-1">
-                Cancelar
-              </Button>
-              <Button onClick={handleUpdateEmployee} disabled={actionLoading === 'updating'} className="flex-1">
-                {actionLoading === 'updating' ? (
+              <Button 
+                variant="destructive" 
+                onClick={handleDeleteEmployee} 
+                disabled={actionLoading === 'deleting'}
+              >
+                {actionLoading === 'deleting' ? (
                   <>
                     <Spinner size="sm" className="text-white mr-2" />
-                    Guardando...
+                    Eliminando...
                   </>
-                ) : 'Guardar Cambios'}
+                ) : (
+                  <>
+                    <Trash2 className="h-4 w-4 mr-2" />
+                    Eliminar
+                  </>
+                )}
               </Button>
+              <div className="flex-1 flex gap-3">
+                <Button variant="outline" onClick={() => setShowEditModal(false)} className="flex-1">
+                  Cancelar
+                </Button>
+                <Button onClick={handleUpdateEmployee} disabled={actionLoading === 'updating'} className="flex-1">
+                  {actionLoading === 'updating' ? (
+                    <>
+                      <Spinner size="sm" className="text-white mr-2" />
+                      Guardando...
+                    </>
+                  ) : 'Guardar Cambios'}
+                </Button>
+              </div>
             </div>
           </div>
         </DialogContent>

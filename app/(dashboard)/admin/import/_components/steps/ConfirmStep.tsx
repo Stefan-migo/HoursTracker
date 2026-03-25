@@ -19,8 +19,8 @@ export function ConfirmStep({ wizard }: ConfirmStepProps) {
   const router = useRouter()
 
   const validRecords = state.previewRecords.filter(r => r.isValid).length
-  const employeesToCreate = state.newEmployees.filter(e => e.createProfile && e.fullName.trim()).length
-  const invitationsToSend = state.newEmployees.filter(e => e.createProfile && e.sendInvitation && e.fullName.trim()).length
+  const workersToCreate = state.newWorkers.filter(e => e.createProfile && e.fullName.trim()).length
+  const invitationsToSend = state.newWorkers.filter(e => e.createProfile && e.sendInvitation && e.fullName.trim()).length
 
   const handleImport = async () => {
     setIsImporting(true)
@@ -29,11 +29,11 @@ export function ConfirmStep({ wizard }: ConfirmStepProps) {
 
     try {
       const validRecords = state.previewRecords.filter(r => r.isValid)
-      const validEmployees = state.newEmployees.filter(e => e.createProfile && e.fullName.trim())
+      const validWorkers = state.newWorkers.filter(e => e.createProfile && e.fullName.trim())
       
       console.log('🚀 Starting import:', {
         recordsCount: validRecords.length,
-        employeesCount: validEmployees.length,
+        workersCount: validWorkers.length,
         sampleRecord: validRecords[0]
       })
 
@@ -55,7 +55,7 @@ export function ConfirmStep({ wizard }: ConfirmStepProps) {
             clockOut: r.data.clockOut,
             row: r.row
           })),
-          employees: validEmployees
+          workers: validWorkers
         })
       })
 
@@ -128,7 +128,7 @@ export function ConfirmStep({ wizard }: ConfirmStepProps) {
               </Card>
               <Card className="bg-background-secondary">
                 <CardContent className="p-4 text-center">
-                  <div className="text-2xl font-semibold">{state.importResult.employeesCreated}</div>
+                  <div className="text-2xl font-semibold">{state.importResult.workersCreated}</div>
                   <div className="text-xs text-foreground-secondary">Trabajadores creados</div>
                 </CardContent>
               </Card>
@@ -223,7 +223,7 @@ export function ConfirmStep({ wizard }: ConfirmStepProps) {
                 <Users className="h-4 w-4 text-foreground-secondary" />
                 <span className="text-sm text-foreground-secondary">Trabajadores a crear</span>
               </div>
-              <div className="text-2xl font-semibold">{employeesToCreate}</div>
+              <div className="text-2xl font-semibold">{workersToCreate}</div>
             </div>
 
             <div className="p-4 bg-background-secondary rounded-lg">

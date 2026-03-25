@@ -7,7 +7,8 @@ const querySchema = z.object({
   user_id: z.string().uuid().optional(),
   start_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
   end_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
-  limit: z.coerce.number().min(1).max(1000).default(100),
+  search: z.string().optional(),
+  limit: z.coerce.number().min(1).max(1000).default(20),
   offset: z.coerce.number().min(0).default(0),
 })
 
@@ -41,6 +42,7 @@ export async function GET(request: Request) {
       user_id: searchParams.get('user_id') || undefined,
       start_date: searchParams.get('start_date') || undefined,
       end_date: searchParams.get('end_date') || undefined,
+      search: searchParams.get('search') || undefined,
       limit: searchParams.get('limit') || undefined,
       offset: searchParams.get('offset') || undefined,
     }
@@ -53,7 +55,7 @@ export async function GET(request: Request) {
       )
     }
 
-    const { user_id, start_date, end_date, limit, offset } = validationResult.data
+    const { user_id, start_date, end_date, search, limit, offset } = validationResult.data
 
     // Optimized query with JOIN to avoid N+1
     // Admins only see official records (is_official = true)
@@ -93,6 +95,12 @@ export async function GET(request: Request) {
       query = query.lte('date', end_date)
     }
 
+    if (search) {
+      query = query.or(
+        `profiles.full_name.ilike.%${search}%,profiles.email.ilike.%${search}%`
+      )
+    }
+
     const { data: logs, count, error } = await query.range(offset, offset + limit - 1)
 
     if (error) {
@@ -101,7 +109,18 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: message }, { status })
     }
 
-    return NextResponse.json({ data: logs || [], count: count || 0 })
+    const totalPages = Math.ceil((count || 0) / limit)
+
+    return NextResponse.json({
+      data: logs || [],
+      count: count || 0,
+      pagination: {
+        page: Math.floor(offset / limit) + 1,
+        pageSize: limit,
+        totalItems: count || 0,
+        totalPages,
+      }
+    })
   } catch (error) {
     console.error('Unexpected error in GET /api/admin/logs:', error)
     return NextResponse.json(
@@ -225,9 +244,9 @@ const putSchema = z.object({
   id: z.string().uuid('ID inválido'),
   date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
   clock_in: z.string().optional(),
-  clock_out: z.string().optional(),
+  clock_out: z.string().optional().nullable(),
   is_official: z.boolean().optional(),
-  notes: z.string().max(500).optional(),
+  notes: z.string().max(500).optional().nullable(),
 })
 
 export async function PUT(request: Request) {
@@ -269,6 +288,9 @@ export async function PUT(request: Request) {
       return NextResponse.json({ error: 'Body inválido' }, { status: 400 })
     }
 
+    console.log('PUT /api/admin/logs - body received:', body)
+    console.log('PUT /api/admin/logs - id:', id)
+
     const validationResult = putSchema.safeParse({ ...body, id })
     if (!validationResult.success) {
       return NextResponse.json(
@@ -279,9 +301,13 @@ export async function PUT(request: Request) {
 
     const { date, clock_in, clock_out, is_official, notes } = validationResult.data
 
+    console.log('PUT /api/admin/logs - validated data:', { date, clock_in, clock_out, is_official, notes })
+
     // Convert local datetime strings to UTC for PostgreSQL TIMESTAMPTZ if provided
     const clockInUTC = clock_in ? new Date(clock_in).toISOString() : undefined
     const clockOutUTC = clock_out ? new Date(clock_out).toISOString() : undefined
+
+    console.log('PUT /api/admin/logs - converted values:', { clockInUTC, clockOutUTC })
 
     const { error: existingError } = await supabase
       .from('time_logs')
@@ -301,6 +327,8 @@ export async function PUT(request: Request) {
     if (clockOutUTC !== undefined) updateData.clock_out = clockOutUTC
     if (is_official !== undefined) updateData.is_official = is_official
     if (notes !== undefined) updateData.notes = notes
+
+    console.log('PUT /api/admin/logs - updateData:', updateData)
 
     const { data, error } = await supabase
       .from('time_logs')

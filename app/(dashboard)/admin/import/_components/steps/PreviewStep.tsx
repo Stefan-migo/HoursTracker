@@ -14,7 +14,7 @@ interface PreviewStepProps {
 }
 
 export function PreviewStep({ wizard }: PreviewStepProps) {
-  const { state, setPreviewRecords, setNewEmployees, setLoading } = wizard
+  const { state, setPreviewRecords, setNewWorkers, setLoading } = wizard
   const [filter, setFilter] = useState<'all' | 'valid' | 'invalid'>('all')
   const [searchTerm, setSearchTerm] = useState('')
 
@@ -85,7 +85,7 @@ export function PreviewStep({ wizard }: PreviewStepProps) {
           sendInvitation: false
         }))
 
-        setNewEmployees(newEmps)
+        setNewWorkers(newEmps)
       } catch (error) {
         console.error('Error generating preview:', error)
       } finally {

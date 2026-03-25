@@ -24,7 +24,7 @@ export interface ParsedRow {
   errors: string[]
 }
 
-export interface EmployeeNew {
+export interface WorkerNew {
   email: string
   fullName: string
   create: boolean
@@ -39,7 +39,7 @@ export interface ImportState {
   columns: string[]
   mapping: ColumnMapping[]
   rows: ParsedRow[]
-  newEmployees: EmployeeNew[]
+  newWorkers: WorkerNew[]
   isAnalyzing: boolean
   isImporting: boolean
   importResult: {

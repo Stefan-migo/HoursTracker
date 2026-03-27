@@ -88,9 +88,59 @@ export async function POST(request: Request) {
         break
 
       case 'delete':
-        // Delete auth users first, then profiles will be cascade deleted
+        // Delete related data first, then auth users, then profiles will be cascade deleted
         for (const id of ids) {
-          // First check if user exists in auth.users
+          // Delete related time_logs (where user is the worker)
+          const { error: timeLogsError } = await supabase
+            .from('time_logs')
+            .delete()
+            .eq('user_id', id)
+          
+          if (timeLogsError) {
+            console.error(`Error deleting time_logs for ${id}:`, timeLogsError)
+          }
+
+          // Delete related time_logs (where user marked the log)
+          const { error: markedLogsError } = await supabase
+            .from('time_logs')
+            .delete()
+            .eq('edited_by', id)
+          
+          if (markedLogsError) {
+            console.error(`Error deleting marked time_logs for ${id}:`, markedLogsError)
+          }
+
+          // Delete related mediations (as employee)
+          const { error: mediationError } = await supabase
+            .from('mediations')
+            .delete()
+            .eq('employee_id', id)
+          
+          if (mediationError) {
+            console.error(`Error deleting mediations for ${id}:`, mediationError)
+          }
+
+          // Delete related invitation_records
+          const { error: invitationError } = await supabase
+            .from('invitation_records')
+            .delete()
+            .eq('worker_id', id)
+          
+          if (invitationError) {
+            console.error(`Error deleting invitation_records for ${id}:`, invitationError)
+          }
+
+          // Delete related work_group_members
+          const { error: workGroupError } = await supabase
+            .from('work_group_members')
+            .delete()
+            .eq('worker_id', id)
+          
+          if (workGroupError) {
+            console.error(`Error deleting work_group_members for ${id}:`, workGroupError)
+          }
+
+          // Now delete from auth.users
           const { data: userList } = await supabaseAdmin.auth.admin.listUsers()
           const userExists = userList?.users.some(u => u.id === id)
           

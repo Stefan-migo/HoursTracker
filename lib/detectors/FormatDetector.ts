@@ -27,20 +27,34 @@ export class FormatDetector {
 
   /**
    * Detecta formato horizontal: fechas en nombres de columna
-   * Ej: "16/03/2026 Entrada", "16/03/2026 Salida"
+   * Ej: "16/03/2026 Entrada", "16/03/2026 Salida", "Mar-16", "Jan-15", "Mon Mar 16"
    */
   private static detectHorizontalFormat(headers: string[]): FormatDetectionResult {
     // Patrón para detectar fechas en headers: DD/MM/YYYY, DD-MM-YYYY, DD.MM.YYYY, etc.
     const datePattern = /^(\d{1,2})[\/\-\.](\d{1,2})[\/\-\.](\d{2,4})\s*(.+)?$/i
     
+    // Pattern for month abbreviation format: Mar-16, Jan-15, Feb-20
+    const monthAbbrPattern = /^(Ene|Feb|Mar|Abr|May|Jun|Jul|Ago|Sep|Oct|Nov|Dic|Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[-\s](\d{1,2})$/i
+    
+    // Pattern for full date format: Mon Mar 16, Tuesday March 16
+    const fullDatePattern = /^(Lun|Mar|Mié|Jue|Vie|Sáb|Dom|Lun|Mon|Tue|Wed|Thu|Fri|Sat|Sun)[a-z]*\s+(Ene|Feb|Mar|Abr|May|Jun|Jul|Ago|Sep|Oct|Nov|Dic|Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\s+(\d{1,2})/i
+    
     const dateColumns: DateColumnPair[] = []
     const entradaPattern = /entrada|clock.?in|^e$|^in$/i
     const salidaPattern = /salida|clock.?out|^s$|^out$/i
     
-    // Buscar columnas que contengan fechas
+    // Buscar columnas que contengan fechas (standard format)
     const dateHeaders = headers.filter(h => datePattern.test(h.trim()))
     
-    if (dateHeaders.length < 2) {
+    // Check for month abbreviation format
+    const monthAbbrHeaders = headers.filter(h => monthAbbrPattern.test(h.trim()))
+    
+    // Check for full date format
+    const fullDateHeaders = headers.filter(h => fullDatePattern.test(h.trim()))
+    
+    const totalDateHeaders = dateHeaders.length + monthAbbrHeaders.length + fullDateHeaders.length
+    
+    if (totalDateHeaders < 2) {
       return {
         type: 'horizontal',
         confidence: 0,
@@ -83,6 +97,53 @@ export class FormatDetector {
           salidaColumn: group.salida
         })
       }
+    }
+
+    // NEW: Process month abbreviation headers (Mar-16, Jan-15)
+    // These have combined entry-exit in the same cell
+    const monthAbbrMap: Record<string, string> = {
+      ene: '01', feb: '02', mar: '03', abr: '04', may: '05', jun: '06',
+      jul: '07', ago: '08', sep: '09', oct: '10', nov: '11', dic: '12',
+      jan: '01', apr: '04', aug: '08', dec: '12'
+    }
+    
+    for (const header of monthAbbrHeaders) {
+      const match = header.trim().match(monthAbbrPattern)
+      if (!match) continue
+      
+      const monthAbbr = match[1].toLowerCase()
+      const day = match[2].padStart(2, '0')
+      const month = monthAbbrMap[monthAbbr] || '01'
+      const year = new Date().getFullYear()
+      const normalizedDate = `${year}-${month}-${day}`
+      
+      // For month abbreviation format, entrada and salida are the same column
+      // because the cell contains "E:08:55AM - S:06:00PM"
+      dateColumns.push({
+        date: `${day}/${month}/${year}`,
+        dateNormalized: normalizedDate,
+        entradaColumn: header,
+        salidaColumn: header // Same column for combined format
+      })
+    }
+
+    // NEW: Process full date format (Mon Mar 16, Tuesday March 16)
+    for (const header of fullDateHeaders) {
+      const match = header.trim().match(fullDatePattern)
+      if (!match) continue
+      
+      const monthAbbr = match[2].toLowerCase()
+      const day = match[3].padStart(2, '0')
+      const month = monthAbbrMap[monthAbbr] || '01'
+      const year = new Date().getFullYear()
+      const normalizedDate = `${year}-${month}-${day}`
+      
+      dateColumns.push({
+        date: `${day}/${month}/${year}`,
+        dateNormalized: normalizedDate,
+        entradaColumn: header,
+        salidaColumn: header // Same column for combined format
+      })
     }
 
     if (dateColumns.length === 0) {

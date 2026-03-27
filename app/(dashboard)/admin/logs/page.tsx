@@ -306,6 +306,29 @@ function AdminLogsContent() {
     setShowModal(true)
   }, [])
 
+  const handleLogEditFromCard = useCallback((log: {
+    id: string
+    date: string
+    clock_in: string
+    clock_out: string | null
+    total_hours?: number | null
+    is_official?: boolean
+    user_id: string
+    profiles: { id: string; full_name: string; email: string }
+  }) => {
+    const fullLog: TimeLogWithProfile = {
+      id: log.id,
+      date: log.date,
+      clock_in: log.clock_in,
+      clock_out: log.clock_out,
+      total_hours: log.total_hours ?? null,
+      is_official: log.is_official ?? false,
+      user_id: log.user_id,
+      profiles: log.profiles,
+    }
+    openEditModal(fullLog)
+  }, [openEditModal])
+
   const toggleLogSelection = useCallback((logId: string) => {
     setSelectedLogs((prev) => {
       const newSet = new Set(prev)
@@ -368,7 +391,7 @@ function AdminLogsContent() {
     XLSX.writeFile(wb, `registros-oficiales-${dateStr}.xlsx`)
   }
 
-  async function handleSubmit(e: React.FormEvent) {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setActionLoading("submitting")
     setError(null)
@@ -396,6 +419,7 @@ function AdminLogsContent() {
           setActionLoading(null)
           return
         }
+        setLogsRefreshKey((k) => k + 1)
       } else {
         const res = await fetch("/api/admin/logs", {
           method: "POST",
@@ -424,6 +448,8 @@ function AdminLogsContent() {
       setActionLoading(null)
     }
   }
+
+  const [logsRefreshKey, setLogsRefreshKey] = useState(0)
 
   async function handleBulkClockSubmit() {
     if (selectedEmployees.size === 0) {
@@ -806,10 +832,13 @@ function AdminLogsContent() {
         <CardContent>
           {viewMode === "cards" ? (
             <CardsView
+              key={logsRefreshKey}
               employees={employeeStats}
               employeesList={employees}
               dateRange={dateRange}
               onEmployeeClick={handleEmployeeCardClick}
+              onLogEdit={handleLogEditFromCard}
+              onLogsRefresh={() => setLogsRefreshKey((k) => k + 1)}
               isLoading={isLoading}
             />
           ) : (

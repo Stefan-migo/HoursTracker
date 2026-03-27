@@ -30,12 +30,15 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url)
     const date = searchParams.get('date') || new Date().toISOString().split('T')[0]
 
-    const { data: employees, error: employeesError } = await supabase
+    const { data: allEmployees, error: employeesError } = await supabase
       .from('profiles')
-      .select('id, full_name, email, is_active, work_group_id')
-      .eq('role', 'employee')
-      .eq('is_active', true)
+      .select('id, full_name, email, is_active, work_group_id, role, include_in_dashboard')
       .order('full_name')
+
+    const employees = allEmployees?.filter(emp => {
+      if (emp.role === 'admin') return emp.include_in_dashboard === true
+      return emp.is_active === true
+    }) || []
 
     if (employeesError) {
       console.error('Employees fetch error:', employeesError)

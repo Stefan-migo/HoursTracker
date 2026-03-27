@@ -27,6 +27,28 @@ async function getUser() {
   }
 }
 
+async function getMediationSettings() {
+  const supabase = await createClient()
+  const { data } = await supabase
+    .from('settings')
+    .select('value')
+    .eq('key', 'mediations_enabled')
+    .single()
+  
+  return data?.value?.enabled ?? false
+}
+
+async function getMediationProcessSettings() {
+  const supabase = await createClient()
+  const { data } = await supabase
+    .from('settings')
+    .select('value')
+    .eq('key', 'mediation_process_enabled')
+    .single()
+  
+  return data?.value?.enabled ?? true
+}
+
 export default async function DashboardRootLayout({
   children,
 }: {
@@ -39,6 +61,7 @@ export default async function DashboardRootLayout({
   }
 
   const { userName, userRole } = user
+  const mediationsEnabled = await getMediationSettings()
 
   return (
     <div className="min-h-screen bg-background" suppressHydrationWarning>
@@ -131,13 +154,15 @@ export default async function DashboardRootLayout({
                   <Clock4 className="h-4 w-4" />
                   Mis Registros
                 </Link>
-                <Link
-                  href="/worker/disputes"
-                  className="flex items-center gap-3 px-3 py-2.5 text-sm font-medium rounded-md transition-all duration-200 text-foreground-secondary hover:bg-background-tertiary hover:text-foreground"
-                >
-                  <AlertTriangle className="h-4 w-4" />
-                  Mis Mediaciones
-                </Link>
+                {mediationsEnabled && (
+                  <Link
+                    href="/worker/disputes"
+                    className="flex items-center gap-3 px-3 py-2.5 text-sm font-medium rounded-md transition-all duration-200 text-foreground-secondary hover:bg-background-tertiary hover:text-foreground"
+                  >
+                    <AlertTriangle className="h-4 w-4" />
+                    Mis Mediaciones
+                  </Link>
+                )}
               </>
             )}
           </nav>

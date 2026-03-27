@@ -1,10 +1,10 @@
 'use client'
 
 import { Calendar } from 'lucide-react'
+import { useState, useEffect } from 'react'
 
 interface WorkerHeaderProps {
   userName: string | null
-  currentTime: Date
 }
 
 function getGreeting(hour: number): string {
@@ -17,7 +17,14 @@ function getGreeting(hour: number): string {
   }
 }
 
-export function WorkerHeader({ userName, currentTime }: WorkerHeaderProps) {
+function Clock() {
+  const [currentTime, setCurrentTime] = useState(new Date())
+
+  useEffect(() => {
+    const timer = setInterval(() => setCurrentTime(new Date()), 60000)
+    return () => clearInterval(timer)
+  }, [])
+
   const greeting = getGreeting(currentTime.getHours())
   
   const formattedDate = currentTime.toLocaleDateString('es-ES', {
@@ -26,6 +33,12 @@ export function WorkerHeader({ userName, currentTime }: WorkerHeaderProps) {
     month: 'long',
   })
 
+  return { greeting, formattedDate, currentTime }
+}
+
+export function WorkerHeader({ userName }: WorkerHeaderProps) {
+  const { greeting, formattedDate, currentTime } = Clock()
+  
   return (
     <div className="space-y-1">
       <h1 className="text-2xl sm:text-3xl font-semibold text-foreground">

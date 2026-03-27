@@ -12,6 +12,7 @@ import type { TimeLog } from '@/lib/supabase/types'
 import { toast } from 'sonner'
 
 type DateFilter = 'today' | 'week' | 'month' | 'all'
+type RecordMode = 'full' | 'entrance' | 'exit'
 
 export default function WorkerMyLogsPage() {
   const [logs, setLogs] = useState<TimeLog[]>([])
@@ -22,6 +23,7 @@ export default function WorkerMyLogsPage() {
   const [page, setPage] = useState(0)
   const [actionLoading, setActionLoading] = useState<string | null>(null)
   const [pageSize] = useState(15)
+  const [recordMode, setRecordMode] = useState<RecordMode>('full')
 
   const [formData, setFormData] = useState({
     date: new Date().toISOString().split('T')[0],
@@ -70,18 +72,24 @@ export default function WorkerMyLogsPage() {
 
   // Filter logs by date
   const filteredLogs = logs.filter(log => {
-    const logDate = new Date(log.date)
+    // Parse date string as local date to avoid timezone issues
+    const [year, month, day] = log.date.split('-').map(Number)
+    const logDate = new Date(year, month - 1, day)
+    
     const today = new Date()
-    today.setHours(0, 0, 0, 0)
+    const todayYear = today.getFullYear()
+    const todayMonth = today.getMonth()
+    const todayDay = today.getDate()
+    const todayLocal = new Date(todayYear, todayMonth, todayDay)
 
     if (dateFilter === 'today') {
-      return logDate.toDateString() === today.toDateString()
+      return logDate.getTime() === todayLocal.getTime()
     } else if (dateFilter === 'week') {
-      const weekAgo = new Date(today)
+      const weekAgo = new Date(todayLocal)
       weekAgo.setDate(weekAgo.getDate() - 7)
       return logDate >= weekAgo
     } else if (dateFilter === 'month') {
-      const monthAgo = new Date(today)
+      const monthAgo = new Date(todayLocal)
       monthAgo.setMonth(monthAgo.getMonth() - 1)
       return logDate >= monthAgo
     }
@@ -110,15 +118,20 @@ export default function WorkerMyLogsPage() {
       const clockOutFull = `${formData.date}T${formData.clock_out}:00`
 
       if (editingLog) {
-        // Update
+        const updateData: { clock_in?: string; clock_out?: string; is_manual: boolean } = {
+          is_manual: true,
+        }
+        if (recordMode === 'full' || recordMode === 'entrance') {
+          updateData.clock_in = clockInFull
+        }
+        if (recordMode === 'full' || recordMode === 'exit') {
+          updateData.clock_out = clockOutFull
+        }
+
         const res = await fetch(`/api/time-logs?id=${editingLog.id}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            clock_in: clockInFull,
-            clock_out: clockOutFull,
-            is_manual: true,
-          }),
+          body: JSON.stringify(updateData),
         })
 
         if (!res.ok) {
@@ -128,17 +141,22 @@ export default function WorkerMyLogsPage() {
         }
         toast.success('Registro actualizado correctamente')
       } else {
-        // Create
+        const createData: { date: string; clock_in?: string; clock_out?: string; is_manual: boolean; is_official: boolean } = {
+          date: formData.date,
+          is_manual: true,
+          is_official: false,
+        }
+        if (recordMode === 'full' || recordMode === 'entrance') {
+          createData.clock_in = clockInFull
+        }
+        if (recordMode === 'full' || recordMode === 'exit') {
+          createData.clock_out = clockOutFull
+        }
+
         const res = await fetch('/api/time-logs', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            date: formData.date,
-            clock_in: clockInFull,
-            clock_out: clockOutFull,
-            is_manual: true,
-            is_official: false,
-          }),
+          body: JSON.stringify(createData),
         })
 
         if (!res.ok) {
@@ -151,6 +169,7 @@ export default function WorkerMyLogsPage() {
 
       setShowModal(false)
       setEditingLog(null)
+      setRecordMode('full')
       setFormData({
         date: new Date().toISOString().split('T')[0],
         clock_in: '09:00',
@@ -206,6 +225,7 @@ export default function WorkerMyLogsPage() {
 
   function openNewModal() {
     setEditingLog(null)
+    setRecordMode('full')
     setFormData({
       date: new Date().toISOString().split('T')[0],
       clock_in: '09:00',
@@ -434,6 +454,7 @@ export default function WorkerMyLogsPage() {
         if (!open) {
           setShowModal(false)
           setEditingLog(null)
+          setRecordMode('full')
         }
       }}>
         <DialogContent className="max-w-md">
@@ -454,6 +475,41 @@ export default function WorkerMyLogsPage() {
               />
             </div>
 
+            {!editingLog && (
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Tipo de registro</label>
+                <div className="grid grid-cols-3 gap-2">
+                  <Button
+                    type="button"
+                    variant={recordMode === 'full' ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => setRecordMode('full')}
+                    className="text-xs h-9"
+                  >
+                    Entrada y Salida
+                  </Button>
+                  <Button
+                    type="button"
+                    variant={recordMode === 'entrance' ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => setRecordMode('entrance')}
+                    className="text-xs h-9"
+                  >
+                    Solo Entrada
+                  </Button>
+                  <Button
+                    type="button"
+                    variant={recordMode === 'exit' ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => setRecordMode('exit')}
+                    className="text-xs h-9"
+                  >
+                    Solo Salida
+                  </Button>
+                </div>
+              </div>
+            )}
+
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <label className="text-sm font-medium">
@@ -464,7 +520,8 @@ export default function WorkerMyLogsPage() {
                   value={formData.clock_in}
                   onChange={(e) => setFormData({ ...formData, clock_in: e.target.value })}
                   className="w-full h-10 px-3 border border-border rounded-md bg-background"
-                  required
+                  required={recordMode === 'full' || recordMode === 'entrance'}
+                  disabled={recordMode === 'exit'}
                 />
               </div>
               <div className="space-y-2">
@@ -476,7 +533,8 @@ export default function WorkerMyLogsPage() {
                   value={formData.clock_out}
                   onChange={(e) => setFormData({ ...formData, clock_out: e.target.value })}
                   className="w-full h-10 px-3 border border-border rounded-md bg-background"
-                  required
+                  required={recordMode === 'full' || recordMode === 'exit'}
+                  disabled={recordMode === 'entrance'}
                 />
               </div>
             </div>

@@ -1,7 +1,7 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
-import { calculateTotalHours } from '@/lib/utils'
+import { useState, useEffect, useCallback, useRef } from 'react'
+import { calculateTotalHours, getLocalDateString } from '@/lib/utils'
 
 export interface WeeklyStats {
   totalHours: number
@@ -32,6 +32,7 @@ export function useWeeklyStats(customTargetHours?: number): UseWeeklyStatsReturn
   const [weeklyStats, setWeeklyStats] = useState<WeeklyStats | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<Error | null>(null)
+  const hasFetchedRef = useRef(false)
 
   // Use shared utility for calculation
   const calculateLogHours = (log: any): number => {
@@ -49,7 +50,7 @@ export function useWeeklyStats(customTargetHours?: number): UseWeeklyStatsReturn
     startOfWeek.setHours(0, 0, 0, 0)
 
     const weekLogs = logs.filter((log) => {
-      const logDate = new Date(log.date)
+      const logDate = new Date(log.date + 'T00:00:00')
       return logDate >= startOfWeek && logDate <= today
     })
 
@@ -66,7 +67,7 @@ export function useWeeklyStats(customTargetHours?: number): UseWeeklyStatsReturn
     for (let i = 0; i < 7; i++) {
       const date = new Date(startOfWeek)
       date.setDate(startOfWeek.getDate() + i)
-      const dateStr = date.toISOString().split('T')[0]
+      const dateStr = getLocalDateString(date)
 
       const dayLogs = weekLogs.filter((log) => log.date === dateStr)
       const hours = dayLogs.reduce((sum, log) => sum + calculateLogHours(log), 0)
@@ -95,16 +96,16 @@ export function useWeeklyStats(customTargetHours?: number): UseWeeklyStatsReturn
     try {
       setIsLoading(true)
       setError(null)
-      
+
       const today = new Date()
       const currentDay = today.getDay()
       const startOfWeek = new Date(today)
       startOfWeek.setDate(today.getDate() - (currentDay === 0 ? 6 : currentDay - 1))
       startOfWeek.setHours(0, 0, 0, 0)
 
-      const dateFrom = startOfWeek.toISOString().split('T')[0]
-      const dateTo = today.toISOString().split('T')[0]
-      
+      const dateFrom = getLocalDateString(startOfWeek)
+      const dateTo = getLocalDateString(today)
+
       const res = await fetch(`/api/time-logs?limit=100&source=personal&date_from=${dateFrom}&date_to=${dateTo}`)
       if (res.ok) {
         const data = await res.json()
@@ -127,7 +128,10 @@ export function useWeeklyStats(customTargetHours?: number): UseWeeklyStatsReturn
   }
 
   useEffect(() => {
-    fetchWeeklyStats()
+    if (!hasFetchedRef.current) {
+      hasFetchedRef.current = true
+      fetchWeeklyStats()
+    }
   }, [fetchWeeklyStats])
 
   return {

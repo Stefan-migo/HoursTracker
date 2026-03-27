@@ -16,3 +16,5 @@ export {
   type ComparisonEntry,
   type ComparisonSummary
 } from './hooks/useMediations'
+
+export { useMediationSettings } from './hooks/useMediationSettings'

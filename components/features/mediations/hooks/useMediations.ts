@@ -33,6 +33,8 @@ export interface MediationSummary {
   pending_review: number
   in_discussion: number
   agreement_reached: number
+  resolved: number
+  closed_no_changes: number
   stale_count: number
 }
 
@@ -56,7 +58,7 @@ export function useMediations(options: UseMediationsOptions = {}) {
 
     try {
       const params = new URLSearchParams()
-      if (options.status && options.status !== 'all') {
+      if (options.status) {
         params.append('status', options.status)
       }
       if (options.startDate) {
@@ -213,6 +215,13 @@ export interface MediationDetail {
     proposed_by: 'admin' | 'employee'
     proposed_at: string
   } | null
+  suggested: {
+    clock_in: string | null
+    clock_out: string | null
+    total_hours: number | null
+    suggested_by: string | null
+    suggested_at: string | null
+  } | null
   differences: {
     clock_in_diff_minutes: number | null
     clock_out_diff_minutes: number | null
@@ -235,14 +244,26 @@ export interface MediationDetail {
     type: 'comment' | 'system'
     created_at: string
   }>
+  is_closed_by_admin: boolean
+  is_closed_by_employee: boolean
+  is_closed_by_me: boolean
+  sees_change: boolean
   permissions: {
     can_edit_own_record: boolean
     can_edit_other_record: boolean
     can_propose: boolean
-    can_accept: boolean
+    can_accept_proposal: boolean
+    can_reject_proposal: boolean
+    can_counter_proposal: boolean
     can_close: boolean
+    can_close_view: boolean
+    can_reopen_view: boolean
     can_comment: boolean
     is_admin: boolean
+    i_proposed: boolean
+    has_proposal: boolean
+    proposal_status: 'waiting_accept' | 'pending_my_accept' | null
+    mediation_process_enabled: boolean
   }
 }
 

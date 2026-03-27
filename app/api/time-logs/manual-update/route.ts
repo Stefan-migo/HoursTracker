@@ -46,24 +46,37 @@ export async function PUT(request: Request) {
       updated_at: new Date().toISOString(),
     }
 
+    // Helper to convert time to UTC
+    const convertToUTC = (timeStr: string | undefined, dateStr: string): string | null => {
+      if (!timeStr) return null
+      
+      // If it's a full ISO string (contains 'T'), parse normally
+      if (timeStr.includes('T')) {
+        return new Date(timeStr).toISOString()
+      }
+      
+      // If it's just HH:MM, combine with the date
+      const [hours, minutes] = timeStr.split(':')
+      const localDateTime = new Date(`${dateStr}T${hours}:${minutes}:00`)
+      return localDateTime.toISOString()
+    }
+
     // Actualizar clock_in si se proporciona
     if (clockIn !== undefined) {
-      // Validar formato de fecha ISO
-      const newClockIn = new Date(clockIn)
-      if (isNaN(newClockIn.getTime())) {
+      const clockInUTC = convertToUTC(clockIn, existingLog.date)
+      if (!clockInUTC) {
         return NextResponse.json({ error: 'Formato de hora de entrada inválido' }, { status: 400 })
       }
-      updateData.clock_in = clockIn
+      updateData.clock_in = clockInUTC
     }
 
     // Actualizar clock_out si se proporciona
     if (clockOut !== undefined) {
-      // Validar formato de fecha ISO
-      const newClockOut = new Date(clockOut)
-      if (isNaN(newClockOut.getTime())) {
+      const clockOutUTC = convertToUTC(clockOut, existingLog.date)
+      if (!clockOutUTC) {
         return NextResponse.json({ error: 'Formato de hora de salida inválido' }, { status: 400 })
       }
-      updateData.clock_out = clockOut
+      updateData.clock_out = clockOutUTC
     }
 
     // Validar que entrada sea anterior a salida si ambos están presentes

@@ -4,6 +4,8 @@ import { detectColumnType, detectDateFormat, detectTimeFormat, isValidEmail, nor
 import { FormatDetector } from '@/lib/detectors/FormatDetector'
 import { DataTransformer } from '@/lib/transformers/DataTransformer'
 import type { FormatDetectionResult, TransformedRecord as BaseTransformedRecord } from '@/lib/transformers/types'
+import { analyzeDataPatterns, parseCombinedTime } from './pattern-analyzer'
+import { transformWithPatterns } from './universal-transformer'
 
 const OPENROUTER_API_URL = 'https://openrouter.ai/api/v1/chat/completions'
 
@@ -109,56 +111,58 @@ function parseAIResponse(content: string): Partial<ImportAgentResponse> | null {
 
 function fallbackAnalysis(request: ImportAgentRequest): ImportAgentResponse {
   const { headers, rows, options } = request
-  const sampleRows = rows.slice(0, 50)
+  const sampleRows = rows.slice(0, 100)
 
-  console.log('[AI Import Agent] Using system FormatDetector and DataTransformer')
+  console.log('[AI Import Agent] Using NEW Intelligent Pattern-Based Fallback')
 
-  const detectedFormat = FormatDetector.detect(headers)
-  console.log('[AI Import Agent] Format detected by system:', detectedFormat.type, 'confidence:', detectedFormat.confidence)
+  // Use the new intelligent pattern analyzer
+  const patterns = analyzeDataPatterns(headers, sampleRows)
+  console.log('[AI Import Agent] Detected format type:', patterns.formatType)
+  console.log('[AI Import Agent] Detected date columns:', patterns.dateColumns.length)
+  console.log('[AI Import Agent] Has combined entry-exit:', patterns.hasCombinedEntryExit)
 
   let transformedRecords: TransformedRecord[] = []
   let errorMessage: string | undefined
 
-  if (detectedFormat.type === 'unknown' || detectedFormat.confidence < 0.5) {
-    console.log('[AI Import Agent] Format unknown or low confidence, trying manual detection')
-    
-    const manualFormat = tryDetectHorizontalWithDayNames(headers)
-    if (manualFormat) {
-      console.log('[AI Import Agent] Found horizontal format with day names')
-      const formatResult: FormatDetectionResult = {
-        type: 'horizontal',
-        confidence: 0.85,
-        dateColumns: manualFormat.datePairs,
-        message: 'Detectado formato horizontal con días de la semana'
-      }
-      
-      try {
-        transformedRecords = transformHorizontal(headers, sampleRows, formatResult, options)
-      } catch (e) {
-        errorMessage = e instanceof Error ? e.message : 'Error transforming'
-        console.error('[AI Import Agent] Transform error:', errorMessage)
-      }
-    }
-  } else {
+  // Try intelligent transformation first
+  if (patterns.formatType !== 'unknown' || patterns.dateColumns.length > 0) {
     try {
-      const formatResult: FormatDetectionResult = {
-        type: detectedFormat.type,
-        confidence: detectedFormat.confidence,
-        dateColumn: detectedFormat.dateColumn,
-        clockInColumn: detectedFormat.clockInColumn,
-        clockOutColumn: detectedFormat.clockOutColumn,
-        dateColumns: detectedFormat.dateColumns,
-        message: detectedFormat.message
-      }
-      
-      if (detectedFormat.type === 'horizontal') {
-        transformedRecords = transformHorizontal(headers, sampleRows, formatResult, options)
-      } else {
-        transformedRecords = transformVertical(headers, sampleRows, formatResult, options)
-      }
+      transformedRecords = transformWithPatterns(headers, sampleRows, patterns, options)
+      console.log('[AI Import Agent] Intelligent transform result:', transformedRecords.length, 'records')
     } catch (e) {
-      errorMessage = e instanceof Error ? e.message : 'Error transforming'
-      console.error('[AI Import Agent] Transform error:', errorMessage)
+      errorMessage = e instanceof Error ? e.message : 'Error in intelligent transform'
+      console.error('[AI Import Agent] Intelligent transform error:', errorMessage)
+    }
+  }
+
+  // If intelligent transform failed, try legacy detector
+  if (transformedRecords.length === 0) {
+    console.log('[AI Import Agent] Falling back to legacy FormatDetector')
+    
+    const detectedFormat = FormatDetector.detect(headers)
+    console.log('[AI Import Agent] Legacy format detected:', detectedFormat.type, 'confidence:', detectedFormat.confidence)
+
+    if (detectedFormat.type !== 'unknown' && detectedFormat.confidence >= 0.5) {
+      try {
+        const formatResult: FormatDetectionResult = {
+          type: detectedFormat.type,
+          confidence: detectedFormat.confidence,
+          dateColumn: detectedFormat.dateColumn,
+          clockInColumn: detectedFormat.clockInColumn,
+          clockOutColumn: detectedFormat.clockOutColumn,
+          dateColumns: detectedFormat.dateColumns,
+          message: detectedFormat.message
+        }
+        
+        if (detectedFormat.type === 'horizontal') {
+          transformedRecords = transformHorizontal(headers, sampleRows, formatResult, options)
+        } else {
+          transformedRecords = transformVertical(headers, sampleRows, formatResult, options)
+        }
+      } catch (e) {
+        errorMessage = e instanceof Error ? e.message : 'Error in legacy transform'
+        console.error('[AI Import Agent] Legacy transform error:', errorMessage)
+      }
     }
   }
 
@@ -206,10 +210,18 @@ function fallbackAnalysis(request: ImportAgentRequest): ImportAgentResponse {
   const validCount = transformedRecords.filter(r => r.isValid).length
   const invalidCount = transformedRecords.length - validCount
 
+  // Use patterns from the intelligent analyzer, or create from legacy if needed
+  const formatType = patterns.formatType !== 'unknown' ? patterns.formatType : 'horizontal'
+  const formatConfidence = patterns.columns.length > 0 
+    ? Math.max(...patterns.columns.map(c => c.confidence)) * 100 
+    : 50
+
   const format: FormatDetection = {
-    type: detectedFormat.type,
-    confidence: detectedFormat.confidence * 100,
-    reasoning: detectedFormat.message || `Detected ${detectedFormat.type} format`
+    type: formatType,
+    confidence: formatConfidence,
+    reasoning: patterns.dateColumns.length > 0 
+      ? `Detected ${patterns.formatType} format with ${patterns.dateColumns.length} date columns`
+      : 'Using intelligent pattern-based detection'
   }
 
   return {

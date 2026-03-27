@@ -79,10 +79,12 @@ export async function GET(request: Request) {
     }
 
     // Status filter
-    if (status && status !== 'all') {
+    if (status === 'all') {
+      // Get all statuses - no filter
+    } else if (status) {
       query = query.eq('status', status)
     } else {
-      // By default, exclude closed/resolved
+      // Default: only active mediations
       query = query.in('status', ['pending_review', 'in_discussion', 'agreement_reached'])
     }
 
@@ -156,19 +158,29 @@ export async function GET(request: Request) {
       }
     })
 
-    // Filter by stale if requested
-    let filteredMediations = mediationsWithStale
-    if (show_stale === 'true') {
-      filteredMediations = mediationsWithStale.filter(m => m.is_stale)
+    // Calculate summary - always count all statuses from the full dataset
+    const summary = {
+      total: mediationsWithStale.length,
+      pending_review: mediationsWithStale.filter(m => m.status === 'pending_review').length,
+      in_discussion: mediationsWithStale.filter(m => m.status === 'in_discussion').length,
+      agreement_reached: mediationsWithStale.filter(m => m.status === 'agreement_reached').length,
+      resolved: mediationsWithStale.filter(m => m.status === 'resolved').length,
+      closed_no_changes: mediationsWithStale.filter(m => m.status === 'closed_no_changes').length,
+      stale_count: mediationsWithStale.filter(m => m.is_stale).length,
     }
 
-    // Calculate summary
-    const summary = {
-      total: filteredMediations.length,
-      pending_review: filteredMediations.filter(m => m.status === 'pending_review').length,
-      in_discussion: filteredMediations.filter(m => m.status === 'in_discussion').length,
-      agreement_reached: filteredMediations.filter(m => m.status === 'agreement_reached').length,
-      stale_count: filteredMediations.filter(m => m.is_stale).length,
+    // Apply status filter to return only requested (or default to active)
+    let filteredMediations = mediationsWithStale
+    if (status === 'all') {
+      // Return all mediations
+      filteredMediations = mediationsWithStale
+    } else if (status) {
+      filteredMediations = mediationsWithStale.filter(m => m.status === status)
+    } else {
+      // Default: only active mediations
+      filteredMediations = mediationsWithStale.filter(m => 
+        ['pending_review', 'in_discussion', 'agreement_reached'].includes(m.status)
+      )
     }
 
     return NextResponse.json({

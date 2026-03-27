@@ -5,6 +5,12 @@ import { Badge } from '@/components/ui/badge'
 import { Clock, ArrowRight, AlertCircle, CheckCircle2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { formatTime, formatHours } from '@/lib/utils'
+import { 
+  formatToLocalTime, 
+  getLocalTimeInMinutes,
+  getLocalHours,
+  getLocalMinutes
+} from '@/lib/utils/date-utils'
 
 interface TimeRecord {
   clock_in: string | null
@@ -45,6 +51,28 @@ export function ComparisonView({
   const hasHoursDiff = hoursDiff !== 0
   const hasAnyDiff = hasClockInDiff || hasClockOutDiff || hasHoursDiff
 
+  // Calculate dynamic time range based on actual times
+  const allTimes = [
+    adminRecord?.clock_in,
+    adminRecord?.clock_out,
+    employeeRecord?.clock_in,
+    employeeRecord?.clock_out,
+    proposedValues?.clock_in,
+    proposedValues?.clock_out,
+  ].filter((t): t is string => t !== null && t !== undefined)
+
+  let minHour = 7
+  let maxHour = 20
+
+  if (allTimes.length > 0) {
+    const hours = allTimes.map(t => new Date(t).getHours())
+    const mins = allTimes.map(t => new Date(t).getMinutes())
+    const minTime = Math.min(...hours.map((h, i) => h * 60 + mins[i]))
+    const maxTime = Math.max(...hours.map((h, i) => h * 60 + mins[i]))
+    minHour = Math.max(0, Math.floor(minTime / 60) - 1)
+    maxHour = Math.min(24, Math.ceil(maxTime / 60) + 1)
+  }
+
   // If showing only differences and there are none, show a message
   if (showDifferencesOnly && !hasAnyDiff) {
     return (
@@ -78,6 +106,8 @@ export function ComparisonView({
             label="Registro Oficial"
             record={adminRecord}
             color="accent"
+            minHour={minHour}
+            maxHour={maxHour}
           />
 
           {/* Employee Timeline */}
@@ -85,14 +115,12 @@ export function ComparisonView({
             label="Registro Trabajador"
             record={employeeRecord}
             color={hasAnyDiff ? 'warning' : 'success'}
+            minHour={minHour}
+            maxHour={maxHour}
           />
 
           {/* Time markers */}
-          <div className="mt-4 flex justify-between text-xs text-foreground-secondary px-2">
-            {Array.from({ length: 14 }, (_, i) => (
-              <span key={i}>{7 + i}:00</span>
-            ))}
-          </div>
+          <TimeMarkers minHour={minHour} maxHour={maxHour} />
         </CardContent>
       </Card>
 
@@ -179,19 +207,22 @@ interface TimelineRowProps {
   label: string
   record: TimeRecord | null
   color: 'accent' | 'warning' | 'success'
+  minHour?: number
+  maxHour?: number
 }
 
-function TimelineRow({ label, record, color }: TimelineRowProps) {
-  const startHour = 7
-  const endHour = 20
-  const totalMinutes = (endHour - startHour) * 60
+function TimelineRow({ label, record, color, minHour = 7, maxHour = 20 }: TimelineRowProps) {
+  const totalHours = maxHour - minHour
+  const totalMinutes = totalHours * 60
 
   const getPosition = (time: string | null) => {
     if (!time) return 0
     const date = new Date(time)
     const hours = date.getHours()
     const minutes = date.getMinutes()
-    const totalMinutesFromStart = (hours - startHour) * 60 + minutes
+    const totalMinutesFromStart = (hours - minHour) * 60 + minutes
+    if (totalMinutesFromStart < 0) return 0
+    if (totalMinutesFromStart > totalMinutes) return 100
     return (totalMinutesFromStart / totalMinutes) * 100
   }
 
@@ -199,7 +230,7 @@ function TimelineRow({ label, record, color }: TimelineRowProps) {
     if (!start || !end) return 0
     const startPos = getPosition(start)
     const endPos = getPosition(end)
-    return endPos - startPos
+    return Math.max(0, endPos - startPos)
   }
 
   const colorClasses = {
@@ -220,8 +251,8 @@ function TimelineRow({ label, record, color }: TimelineRowProps) {
           )}
         </div>
         <span className="text-sm text-foreground-secondary">
-          {record?.clock_in ? formatTime(record.clock_in) : '--:--'} - {' '}
-          {record?.clock_out ? formatTime(record.clock_out) : '--:--'}
+          {record?.clock_in ? formatToLocalTime(record.clock_in) : '--:--'} - {' '}
+          {record?.clock_out ? formatToLocalTime(record.clock_out) : '--:--'}
         </span>
       </div>
 
@@ -257,6 +288,27 @@ function TimelineRow({ label, record, color }: TimelineRowProps) {
           </div>
         )}
       </div>
+    </div>
+  )
+}
+
+function TimeMarkers({ minHour, maxHour }: { minHour: number; maxHour: number }) {
+  const totalHours = maxHour - minHour
+  const markers = []
+  const step = totalHours <= 6 ? 1 : totalHours <= 12 ? 2 : 3
+
+  for (let h = minHour; h <= maxHour; h += step) {
+    markers.push(h)
+  }
+  if (markers[markers.length - 1] !== maxHour) {
+    markers.push(maxHour)
+  }
+
+  return (
+    <div className="mt-4 flex justify-between text-xs text-foreground-secondary px-2">
+      {markers.map((hour, i) => (
+        <span key={i}>{hour.toString().padStart(2, '0')}:00</span>
+      ))}
     </div>
   )
 }
@@ -363,6 +415,11 @@ function ProposedValueBadge({ label, value, type }: ProposedValueBadgeProps) {
 }
 
 // Helper functions
+function normalizeToMinutes(isoString: string | null | undefined): number | null {
+  if (!isoString) return null
+  return getLocalTimeInMinutes(isoString)
+}
+
 function calculateDiff(
   adminValue: string | number | null | undefined,
   employeeValue: string | number | null | undefined,
@@ -373,9 +430,10 @@ function calculateDiff(
   }
 
   if (type === 'time') {
-    const adminTime = new Date(adminValue as string).getTime()
-    const employeeTime = new Date(employeeValue as string).getTime()
-    return Math.round((adminTime - employeeTime) / (1000 * 60))
+    const adminMinutes = normalizeToMinutes(adminValue as string)
+    const employeeMinutes = normalizeToMinutes(employeeValue as string)
+    if (adminMinutes === null || employeeMinutes === null) return 0
+    return adminMinutes - employeeMinutes
   } else {
     return (adminValue as number) - (employeeValue as number)
   }

@@ -25,11 +25,27 @@ interface EmployeeSheetProps {
     date: string
     clock_in: string
     clock_out: string | null
-    total_hours: number | null
-    is_official: boolean
+    total_hours?: number | null
+    is_official?: boolean
+    user_id?: string
+    profiles?: {
+      id: string
+      full_name: string
+      email: string
+    }
   }>
   isLoading?: boolean
   onViewAll?: () => void
+  onLogEdit?: (log: {
+    id: string
+    date: string
+    clock_in: string
+    clock_out: string | null
+    total_hours: number | null | undefined
+    is_official: boolean | undefined
+    user_id: string
+    profiles: { id: string; full_name: string; email: string }
+  }) => void
 }
 
 export function EmployeeSheet({
@@ -40,6 +56,7 @@ export function EmployeeSheet({
   logs,
   isLoading = false,
   onViewAll,
+  onLogEdit,
 }: EmployeeSheetProps) {
   const totalHours = logs.reduce((sum, log) => {
     const hours = log.total_hours ?? (log.clock_in && log.clock_out
@@ -147,10 +164,22 @@ export function EmployeeSheet({
                       ? calculateTotalHours(log.clock_in, log.clock_out)
                       : null)
 
+                  const logData = {
+                    id: log.id,
+                    date: log.date,
+                    clock_in: log.clock_in,
+                    clock_out: log.clock_out,
+                    total_hours: log.total_hours,
+                    is_official: log.is_official,
+                    user_id: log.user_id || employeeId || '',
+                    profiles: log.profiles || { id: employeeId || '', full_name: employeeName || '', email: '' },
+                  }
+
                   return (
-                    <div
+                    <button
                       key={log.id}
-                      className="flex items-center justify-between rounded-lg border border-border-subtle p-3 hover:bg-background-secondary transition-colors"
+                      onClick={() => onLogEdit?.(logData)}
+                      className="w-full flex items-center justify-between rounded-lg border border-border-subtle p-3 hover:bg-background-secondary transition-colors text-left"
                     >
                       <div className="min-w-0">
                         <p className="text-sm font-medium text-foreground">
@@ -175,7 +204,7 @@ export function EmployeeSheet({
                           </Badge>
                         )}
                       </div>
-                    </div>
+                    </button>
                   )
                 })}
                 {logs.length > 10 && (

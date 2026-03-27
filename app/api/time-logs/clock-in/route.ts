@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
-import { localDateTimeToUTC } from '@/lib/utils'
+import { localDateTimeToUTC, getLocalDateString } from '@/lib/utils'
 
 export async function POST(request: Request) {
   const supabase = await createClient()
@@ -31,23 +31,28 @@ export async function POST(request: Request) {
 
   const { date: bodyDate, clock_in: bodyClockIn } = body as { date?: string; clock_in?: string }
 
-  // Get current date/time in local timezone
-  const now = new Date()
-  const localDate = bodyDate || (() => {
-    const year = now.getFullYear()
-    const month = String(now.getMonth() + 1).padStart(2, '0')
-    const day = String(now.getDate()).padStart(2, '0')
-    return `${year}-${month}-${day}`
-  })()
+  // Get current date in local timezone
+  const localDate = bodyDate || getLocalDateString()
 
-  // Convert to UTC ISO string for PostgreSQL TIMESTAMPTZ
-  let clockInUTC: string
+  // Use client-provided time if available, otherwise fall back to server time
+  let clockInTime: string
   if (bodyClockIn) {
-    // Manual entry: convert local time to UTC
-    clockInUTC = localDateTimeToUTC(localDate, bodyClockIn)
+    // If it's a full ISO string (contains 'T' and more after), parse normally
+    if (bodyClockIn.includes('T')) {
+      clockInTime = new Date(bodyClockIn).toISOString()
+    } 
+    // If it's just HH:MM, combine with the date
+    else if (bodyClockIn.includes(':')) {
+      const [hours, minutes] = bodyClockIn.split(':')
+      const localDateTime = new Date(`${localDate}T${hours}:${minutes}:00`)
+      clockInTime = localDateTime.toISOString()
+    }
+    else {
+      clockInTime = new Date(bodyClockIn).toISOString()
+    }
   } else {
-    // Automatic entry: use current time in UTC
-    clockInUTC = now.toISOString()
+    // Automatic entry: use server current time
+    clockInTime = new Date().toISOString()
   }
 
   // Check if there's already a clock_in for this date
@@ -68,7 +73,7 @@ export async function POST(request: Request) {
     .insert({
       user_id: user.id,
       date: localDate,
-      clock_in: clockInUTC,
+      clock_in: clockInTime,
       is_official: false,
       is_manual: !!bodyClockIn,
       marked_by: user.id,

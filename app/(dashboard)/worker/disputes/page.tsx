@@ -2,10 +2,10 @@
 
 import { useState } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
-import { AlertTriangle, MessageCircle, ArrowLeft, Loader2, Calendar, Clock } from 'lucide-react'
+import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog'
+import { VisuallyHidden } from '@/components/ui/visually-hidden'
+import { AlertTriangle, MessageCircle, Loader2, Calendar, Clock } from 'lucide-react'
 import { formatDate } from '@/lib/utils'
 import { 
   useMediations, 
@@ -17,7 +17,7 @@ import { MediationWorkspace } from '@/components/features/mediations'
 
 const statusLabels: Record<MediationStatus, string> = {
   pending_review: 'Pendiente de revisión',
-  in_discussion: 'En conversación',
+  in_discussion: 'En mediación',
   agreement_reached: 'Acuerdo alcanzado',
   resolved: 'Resuelto',
   closed_no_changes: 'Cerrado',
@@ -34,9 +34,10 @@ const statusColors: Record<MediationStatus, string> = {
 export default function WorkerMediationsPage() {
   const [filter, setFilter] = useState<MediationStatus | 'all'>('all')
   const [selectedMediationId, setSelectedMediationId] = useState<string | null>(null)
+  const [activeTab, setActiveTab] = useState<'active' | 'history'>('active')
 
   const { mediations, summary, isLoading, refetch } = useMediations({
-    status: filter,
+    status: 'all',
   })
 
   const { mediation: selectedMediation } = useMediationDetail(selectedMediationId)
@@ -81,7 +82,7 @@ export default function WorkerMediationsPage() {
           </Card>
           <Card>
             <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-warning">En Discusión</CardTitle>
+              <CardTitle className="text-sm font-medium text-warning">En Mediación</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold text-warning">{summary.in_discussion}</div>
@@ -93,7 +94,7 @@ export default function WorkerMediationsPage() {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold text-success">
-                {summary.agreement_reached + (mediations.filter(m => m.status === 'resolved').length)}
+                {summary.resolved || 0}
               </div>
             </CardContent>
           </Card>
@@ -106,6 +107,22 @@ export default function WorkerMediationsPage() {
           <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
             <CardTitle>Mis Mediaciones</CardTitle>
             <div className="flex rounded-md border border-border">
+              <button
+                onClick={() => setActiveTab('active')}
+                className={`px-3 py-1.5 text-sm font-medium transition-colors ${activeTab === 'active' ? 'bg-accent text-white' : 'bg-background text-foreground-secondary hover:bg-background-secondary'}`}
+              >
+                Activas
+              </button>
+              <button
+                onClick={() => setActiveTab('history')}
+                className={`px-3 py-1.5 text-sm font-medium transition-colors ${activeTab === 'history' ? 'bg-accent text-white' : 'bg-background text-foreground-secondary hover:bg-background-secondary'}`}
+              >
+                Historial
+              </button>
+            </div>
+          </div>
+          {activeTab === 'active' && (
+            <div className="flex rounded-md border border-border mt-4 w-fit">
               <button
                 onClick={() => setFilter('all')}
                 className={`px-3 py-1.5 text-sm font-medium transition-colors ${filter === 'all' ? 'bg-accent text-white' : 'bg-background text-foreground-secondary hover:bg-background-secondary'}`}
@@ -122,30 +139,47 @@ export default function WorkerMediationsPage() {
                 onClick={() => setFilter('in_discussion')}
                 className={`px-3 py-1.5 text-sm font-medium transition-colors ${filter === 'in_discussion' ? 'bg-warning text-white' : 'bg-background text-foreground-secondary hover:bg-background-secondary'}`}
               >
-                En Discusión
+                En Mediación
               </button>
             </div>
-          </div>
+          )}
         </CardHeader>
         <CardContent>
           {isLoading ? (
             <div className="flex items-center justify-center py-8">
               <Loader2 className="h-8 w-8 animate-spin text-foreground-secondary" />
             </div>
-          ) : mediations.length === 0 ? (
+          ) : mediations.filter(m => activeTab === 'active' 
+            ? m.status === 'pending_review' || m.status === 'in_discussion'
+            : m.status === 'resolved' || m.status === 'closed_no_changes').length === 0 ? (
             <div className="text-center py-12 text-foreground-secondary">
-              <MessageCircle className="h-12 w-12 mx-auto mb-3 opacity-50" />
-              <p>No tienes mediaciones {filter !== 'all' ? 'en este estado' : ''}</p>
+              {activeTab === 'active' ? (
+                <>
+                  <MessageCircle className="h-12 w-12 mx-auto mb-3 opacity-50" />
+                  <p className="text-lg font-medium text-foreground">No hay inconsistencias en tus registros</p>
+                  <p className="text-sm mt-1">Todos tus registros están correctos</p>
+                </>
+              ) : (
+                <>
+                  <MessageCircle className="h-12 w-12 mx-auto mb-3 opacity-50" />
+                  <p>No hay mediaciones en el historial</p>
+                </>
+              )}
             </div>
           ) : (
             <div className="space-y-3">
-              {mediations.map((mediation) => (
-                <MediationListItem
-                  key={mediation.id}
-                  mediation={mediation}
-                  onClick={() => setSelectedMediationId(mediation.id)}
-                />
-              ))}
+              {mediations
+                .filter(m => activeTab === 'active' 
+                  ? m.status === 'pending_review' || m.status === 'in_discussion'
+                  : m.status === 'resolved' || m.status === 'closed_no_changes')
+                .map((mediation) => (
+                  <MediationListItem
+                    key={mediation.id}
+                    mediation={mediation}
+                    onClick={() => setSelectedMediationId(mediation.id)}
+                    isHistory={activeTab === 'history'}
+                  />
+                ))}
             </div>
           )}
         </CardContent>
@@ -154,16 +188,9 @@ export default function WorkerMediationsPage() {
       {/* Detail Dialog */}
       <Dialog open={!!selectedMediationId} onOpenChange={(open) => !open && handleClose()}>
         <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <div className="flex items-center gap-4">
-              <Button variant="ghost" size="sm" onClick={handleClose}>
-                <ArrowLeft className="h-4 w-4 mr-2" />
-                Volver
-              </Button>
-              <DialogTitle>Mi Mediación</DialogTitle>
-            </div>
-          </DialogHeader>
-          
+          <VisuallyHidden>
+            <DialogTitle>Mi Mediación</DialogTitle>
+          </VisuallyHidden>
           {selectedMediation && (
             <MediationWorkspace
               mediationId={selectedMediationId!}
@@ -180,15 +207,20 @@ export default function WorkerMediationsPage() {
 // List item component for mediations
 function MediationListItem({ 
   mediation, 
-  onClick 
+  onClick,
+  isHistory = false
 }: { 
   mediation: Mediation
-  onClick: () => void 
+  onClick: () => void
+  isHistory?: boolean
 }) {
   return (
     <div
       onClick={onClick}
-      className="p-4 border border-border rounded-lg hover:border-accent/50 hover:bg-accent/5 cursor-pointer transition-colors"
+      className={isHistory 
+        ? "p-4 border border-border rounded-lg bg-background-secondary/30 cursor-pointer transition-colors"
+        : "p-4 border border-border rounded-lg hover:border-accent/50 hover:bg-accent/5 cursor-pointer transition-colors"
+      }
     >
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div className="flex items-start gap-3">
@@ -209,7 +241,7 @@ function MediationListItem({
             {statusLabels[mediation.status]}
           </Badge>
           
-          {mediation.is_stale && (
+          {mediation.is_stale && !isHistory && (
             <Badge variant="outline" className="border-error text-error">
               <AlertTriangle className="h-3 w-3 mr-1" />
               Inactiva

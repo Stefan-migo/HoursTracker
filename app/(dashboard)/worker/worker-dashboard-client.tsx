@@ -16,8 +16,6 @@ interface WorkerDashboardClientProps {
 }
 
 export function WorkerDashboardClient({ userName }: WorkerDashboardClientProps) {
-  const [currentTime, setCurrentTime] = useState(new Date())
-  
   const {
     todayLog,
     isLoading: isLoadingToday,
@@ -26,18 +24,21 @@ export function WorkerDashboardClient({ userName }: WorkerDashboardClientProps) 
     handleClockOut,
     updateManual,
     createPartialRecord,
+    deleteTodayLog,
   } = useTodayLog()
 
   const {
     weeklyStats,
     isLoading: isLoadingWeekly,
+    refresh: refreshWeekly,
   } = useWeeklyStats()
 
-  // Update current time every second
+  // Refresh weekly stats when today's log actually changes (clock-in, clock-out, etc.)
   useEffect(() => {
-    const timer = setInterval(() => setCurrentTime(new Date()), 1000)
-    return () => clearInterval(timer)
-  }, [])
+    if (todayLog?.id) {
+      refreshWeekly()
+    }
+  }, [todayLog?.id])
 
   const hasCheckedIn = !!todayLog?.clock_in
   const hasCheckedOut = !!todayLog?.clock_out
@@ -46,10 +47,7 @@ export function WorkerDashboardClient({ userName }: WorkerDashboardClientProps) 
   return (
     <div className="max-w-4xl mx-auto space-y-6 sm:space-y-8 animate-fade-in">
       {/* Header Section */}
-      <WorkerHeader 
-        userName={userName} 
-        currentTime={currentTime} 
-      />
+      <WorkerHeader userName={userName} />
 
       {/* Main Action Section */}
       <ClockInCard
@@ -62,6 +60,7 @@ export function WorkerDashboardClient({ userName }: WorkerDashboardClientProps) 
         onClockOut={handleClockOut}
         onUpdateManual={updateManual}
         onCreateRecord={createPartialRecord}
+        onDelete={deleteTodayLog}
       />
 
       {/* Status Grid */}

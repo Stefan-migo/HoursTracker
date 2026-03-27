@@ -4,6 +4,7 @@ export type Profile = {
   role: 'employee' | 'admin'
   is_active: boolean
   email: string
+  include_in_dashboard?: boolean
   created_at: string
   updated_at: string
 }

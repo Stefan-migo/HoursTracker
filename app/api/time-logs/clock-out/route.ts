@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
-import { localDateTimeToUTC } from '@/lib/utils'
+import { localDateTimeToUTC, getLocalDateString } from '@/lib/utils'
 
 export async function POST(request: Request) {
   const supabase = await createClient()
@@ -31,23 +31,28 @@ export async function POST(request: Request) {
 
   const { date: bodyDate, clock_out: bodyClockOut } = body as { date?: string; clock_out?: string }
 
-  // Get current date/time in local timezone
-  const now = new Date()
-  const localDate = bodyDate || (() => {
-    const year = now.getFullYear()
-    const month = String(now.getMonth() + 1).padStart(2, '0')
-    const day = String(now.getDate()).padStart(2, '0')
-    return `${year}-${month}-${day}`
-  })()
+  // Get current date in local timezone
+  const localDate = bodyDate || getLocalDateString()
 
-  // Convert to UTC ISO string for PostgreSQL TIMESTAMPTZ
-  let clockOutUTC: string
+  // Use client-provided time if available, otherwise fall back to server time
+  let clockOutTime: string
   if (bodyClockOut) {
-    // Manual entry: convert local time to UTC
-    clockOutUTC = localDateTimeToUTC(localDate, bodyClockOut)
+    // If it's a full ISO string (contains 'T'), parse normally
+    if (bodyClockOut.includes('T')) {
+      clockOutTime = new Date(bodyClockOut).toISOString()
+    } 
+    // If it's just HH:MM, combine with the date
+    else if (bodyClockOut.includes(':')) {
+      const [hours, minutes] = bodyClockOut.split(':')
+      const localDateTime = new Date(`${localDate}T${hours}:${minutes}:00`)
+      clockOutTime = localDateTime.toISOString()
+    }
+    else {
+      clockOutTime = new Date(bodyClockOut).toISOString()
+    }
   } else {
-    // Automatic entry: use current time in UTC
-    clockOutUTC = now.toISOString()
+    // Automatic entry: use server current time
+    clockOutTime = new Date().toISOString()
   }
 
   // Find the entry without clock_out for this date
@@ -65,13 +70,13 @@ export async function POST(request: Request) {
 
   // Calculate total hours
   const startTime = new Date(existing.clock_in)
-  const endTime = new Date(clockOutUTC)
+  const endTime = new Date(clockOutTime)
   const totalHours = (endTime.getTime() - startTime.getTime()) / (1000 * 60 * 60)
 
   const { data, error } = await supabase
     .from('time_logs')
     .update({
-      clock_out: clockOutUTC,
+      clock_out: clockOutTime,
       total_hours: totalHours,
       is_manual: !!bodyClockOut,
     })

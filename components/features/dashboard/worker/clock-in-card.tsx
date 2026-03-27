@@ -1,11 +1,18 @@
 'use client'
 
-import React, { useState, useEffect, useMemo, useSyncExternalStore, useCallback } from 'react'
+import React, { useState, useEffect, useMemo, useCallback } from 'react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Spinner } from '@/components/ui/spinner'
-import { LogOut, Clock, CheckCircle2 } from 'lucide-react'
-import { formatElapsedTime, cn } from '@/lib/utils'
+import { LogOut, Clock, CheckCircle2, Trash2 } from 'lucide-react'
+import { cn } from '@/lib/utils'
+import { 
+  formatToLocalTime, 
+  formatElapsedTime,
+  createLocalNowISO,
+  createLocalDateTime,
+  getCurrentLocalDate
+} from '@/lib/utils/date-utils'
 import type { WorkState } from '@/lib/messages/types'
 import { TimeInput } from './time-input'
 import { InlineEditField } from './inline-edit-field'
@@ -15,71 +22,54 @@ interface ClockInCardProps {
   clockOut: string | null
   totalHours: number | null
   isLoading: boolean
-  actionLoading: 'clock_in' | 'clock_out' | 'update' | 'create' | null
+  actionLoading: 'clock_in' | 'clock_out' | 'update' | 'create' | 'delete' | null
   onClockOut: () => void
   onUpdateManual?: (data: { clockIn?: string; clockOut?: string }) => Promise<boolean>
   onCreateRecord?: (data: { clockIn?: string; clockOut?: string }) => Promise<boolean>
+  onDelete?: () => Promise<boolean>
   canEdit?: boolean
 }
 
-const elapsedTimeStore = {
-  time: '00:00:00',
-  listeners: new Set<() => void>(),
-  interval: null as NodeJS.Timeout | null,
-  clockIn: null as string | null,
-}
-
-function subscribeToTimer(callback: () => void) {
-  elapsedTimeStore.listeners.add(callback)
-  return () => {
-    elapsedTimeStore.listeners.delete(callback)
-  }
-}
-
-function getTimerSnapshot() {
-  return elapsedTimeStore.time
-}
-
-function updateTimerTime(time: string) {
-  elapsedTimeStore.time = time
-  elapsedTimeStore.listeners.forEach((cb) => cb())
-}
-
 function useElapsedTimer(clockIn: string | null, isWorking: boolean) {
-  const elapsedTime = useSyncExternalStore(
-    subscribeToTimer,
-    getTimerSnapshot,
-    () => '00:00:00'
-  )
+  const [elapsedTime, setElapsedTime] = useState('00:00:00')
 
   useEffect(() => {
-    if (elapsedTimeStore.interval) {
-      clearInterval(elapsedTimeStore.interval)
-      elapsedTimeStore.interval = null
-    }
-
     if (!isWorking || !clockIn) {
-      updateTimerTime('00:00:00')
-      elapsedTimeStore.clockIn = null
+      setElapsedTime('00:00:00')
       return
     }
 
-    elapsedTimeStore.clockIn = clockIn
+    // Parse the ISO string - if it has 'Z', JavaScript converts UTC to local automatically
+    // If no timezone info, it's treated as local time (which is wrong for stored UTC values)
+    const startDate = new Date(clockIn)
+    if (isNaN(startDate.getTime())) {
+      setElapsedTime('00:00:00')
+      return
+    }
+
+    const startTime = startDate.getTime()
 
     const tick = () => {
-      if (elapsedTimeStore.clockIn) {
-        updateTimerTime(formatElapsedTime(elapsedTimeStore.clockIn))
+      const now = Date.now()
+      const diff = now - startTime
+
+      if (diff < 0) {
+        setElapsedTime('00:00:00')
+        return
       }
+
+      const hours = Math.floor(diff / (1000 * 60 * 60))
+      const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60))
+      const seconds = Math.floor((diff % (1000 * 60)) / 1000)
+
+      setElapsedTime(`${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`)
     }
 
     tick()
-    elapsedTimeStore.interval = setInterval(tick, 1000)
+    const interval = setInterval(tick, 1000)
 
     return () => {
-      if (elapsedTimeStore.interval) {
-        clearInterval(elapsedTimeStore.interval)
-        elapsedTimeStore.interval = null
-      }
+      clearInterval(interval)
     }
   }, [isWorking, clockIn])
 
@@ -88,16 +78,15 @@ function useElapsedTimer(clockIn: string | null, isWorking: boolean) {
 
 function formatTimeForInput(isoString: string | null): string | null {
   if (!isoString) return null
-  const date = new Date(isoString)
-  return date.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', hour12: false })
+  // Use formatToLocalTime which handles timezone conversion correctly
+  return formatToLocalTime(isoString)
 }
 
 function parseTimeToISO(timeString: string | null): string | null {
   if (!timeString) return null
-  const [hours, minutes] = timeString.split(':').map(Number)
-  const now = new Date()
-  now.setHours(hours, minutes, 0, 0)
-  return now.toISOString()
+  // Just return the time string as-is (HH:MM format from input type="time")
+  // Backend will handle the conversion
+  return timeString
 }
 
 export function ClockInCard({
@@ -109,6 +98,7 @@ export function ClockInCard({
   onClockOut,
   onUpdateManual,
   onCreateRecord,
+  onDelete,
   canEdit = false,
 }: ClockInCardProps) {
   const hasCheckedIn = !!clockIn
@@ -250,8 +240,13 @@ export function ClockInCard({
         </p>
 
         {workState === 'working' && (
-          <div className="text-4xl sm:text-5xl font-light text-foreground mb-8 tabular-nums tracking-tight">
-            {elapsedTime}
+          <div className="mb-8">
+            <p className="text-xs text-foreground-secondary mb-2 text-center">
+              Tiempo trabajado
+            </p>
+            <div className="text-4xl sm:text-5xl font-light text-foreground tabular-nums tracking-tight">
+              {elapsedTime}
+            </div>
           </div>
         )}
 
@@ -369,10 +364,10 @@ export function ClockInCard({
           </p>
         )}
 
-        {(actionLoading === 'update' || actionLoading === 'create' || isSaving) && !isEditingAny && (
+        {(actionLoading === 'update' || actionLoading === 'create' || actionLoading === 'delete' || isSaving) && !isEditingAny && (
           <div className="flex items-center justify-center gap-2 mb-4 text-sm text-foreground-secondary">
             <Spinner size="sm" />
-            {actionLoading === 'create' ? 'Creando registro...' : 'Guardando cambios...'}
+            {actionLoading === 'create' ? 'Creando registro...' : actionLoading === 'delete' ? 'Eliminando...' : 'Guardando cambios...'}
           </div>
         )}
 
@@ -383,6 +378,18 @@ export function ClockInCard({
               {totalHours?.toFixed(1) || '0.0'}h
             </p>
           </div>
+        )}
+
+        {workState === 'completed' && onDelete && (
+          <Button
+            variant="ghost"
+            onClick={onDelete}
+            disabled={actionLoading === 'delete'}
+            className="text-error hover:text-error hover:bg-error/10 w-full mb-4"
+          >
+            <Trash2 className="h-4 w-4 mr-2" />
+            {actionLoading === 'delete' ? 'Eliminando...' : 'Eliminar registro de hoy'}
+          </Button>
         )}
 
         {workState === 'working' && (

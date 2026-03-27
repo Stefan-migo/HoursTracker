@@ -34,6 +34,8 @@ type Employee = {
     total_hours: number | null
   } | null
   is_present: boolean
+  role?: 'employee' | 'admin'
+  include_in_dashboard?: boolean
 }
 
 type FilterType = 'all' | 'active' | 'inactive'

@@ -5,6 +5,7 @@ import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
 import { BarChart3 } from 'lucide-react'
 import type { DailyData } from '@/hooks/use-weekly-stats'
+import { getLocalDateString } from '@/lib/utils'
 
 interface WeeklySummaryWidgetProps {
   dailyData: DailyData[]
@@ -39,7 +40,7 @@ export function WeeklySummaryWidget({
 }: WeeklySummaryWidgetProps) {
   const maxHours = Math.max(...dailyData.map(d => d.hours), TARGET_HOURS) + 2
   const weekLabel = getCurrentWeekLabel()
-  const today = new Date().toISOString().split('T')[0]
+  const today = getLocalDateString()
 
   if (isLoading) {
     return (

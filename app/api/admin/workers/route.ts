@@ -8,6 +8,7 @@ const putSchema = z.object({
   email: z.string().email('Email inválido').optional(),
   role: z.enum(['admin', 'employee']).optional(),
   is_active: z.boolean().optional(),
+  include_in_dashboard: z.boolean().optional(),
 })
 
 export async function GET(request: Request) {
@@ -85,7 +86,7 @@ export async function PUT(request: Request) {
       )
     }
 
-    const { id, full_name, email, role, is_active } = validationResult.data
+    const { id, full_name, email, role, is_active, include_in_dashboard } = validationResult.data
 
     if (!id) {
       return NextResponse.json({ error: 'ID requerido' }, { status: 400 })
@@ -99,11 +100,12 @@ export async function PUT(request: Request) {
       )
     }
 
-    const updateData: { full_name?: string; email?: string; role?: string; is_active?: boolean } = {}
+    const updateData: { full_name?: string; email?: string; role?: string; is_active?: boolean; include_in_dashboard?: boolean } = {}
     if (full_name !== undefined) updateData.full_name = full_name
     if (email !== undefined) updateData.email = email
     if (role !== undefined) updateData.role = role
     if (is_active !== undefined) updateData.is_active = is_active
+    if (include_in_dashboard !== undefined) updateData.include_in_dashboard = include_in_dashboard
 
     const { data, error } = await supabase
       .from('profiles')

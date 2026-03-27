@@ -31,6 +31,7 @@ type Employee = {
   full_name: string
   role: string
   is_active: boolean
+  include_in_dashboard?: boolean
   created_at: string
   invitation_status?: 'none' | 'pending' | 'active'
 }
@@ -62,7 +63,8 @@ export default function EmployeesPage() {
     email: '', 
     emailOrig: null as string | null,
     role: 'employee', 
-    is_active: true 
+    is_active: true,
+    include_in_dashboard: false,
   })
   const [inviteUrl, setInviteUrl] = useState<string | null>(null)
   const [actionLoading, setActionLoading] = useState<string | null>(null)
@@ -228,9 +230,10 @@ export default function EmployeesPage() {
         body: JSON.stringify({
           id: editingEmployee.id,
           full_name: editFormData.full_name,
-          email: editFormData.email,
+          email: editFormData.email || undefined,
           role: editFormData.role,
           is_active: editFormData.is_active,
+          include_in_dashboard: editFormData.include_in_dashboard,
         }),
       })
       
@@ -349,6 +352,7 @@ export default function EmployeesPage() {
       emailOrig: employee.email,
       role: employee.role,
       is_active: employee.is_active,
+      include_in_dashboard: employee.include_in_dashboard || false,
     })
     setShowEditModal(true)
   }
@@ -719,6 +723,21 @@ export default function EmployeesPage() {
                 Trabajador activo
               </label>
             </div>
+
+            {editFormData.role === 'admin' && (
+              <div className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  id="include_in_dashboard"
+                  checked={editFormData.include_in_dashboard}
+                  onChange={(e) => setEditFormData({ ...editFormData, include_in_dashboard: e.target.checked })}
+                  className="h-4 w-4 rounded border-border text-accent focus:ring-accent"
+                />
+                <label htmlFor="include_in_dashboard" className="text-sm font-medium text-foreground">
+                  Mostrar en dashboard
+                </label>
+              </div>
+            )}
 
             <div className="pt-2 border-t border-border">
               {editingEmployee?.email ? (

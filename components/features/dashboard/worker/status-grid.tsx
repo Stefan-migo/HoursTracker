@@ -3,7 +3,7 @@
 import { Card, CardContent } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
 import { LogIn, Timer, Target } from 'lucide-react'
-import { formatTime } from '@/lib/utils'
+import { formatToLocalTime } from '@/lib/utils/date-utils'
 
 interface StatusGridProps {
   clockIn: string | null
@@ -54,7 +54,7 @@ export function StatusGrid({
             </span>
           </div>
           <p className="text-2xl sm:text-3xl font-semibold text-foreground tabular-nums tracking-tight">
-            {formatTime(clockIn)}
+            {formatToLocalTime(clockIn)}
           </p>
         </CardContent>
       </Card>

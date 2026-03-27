@@ -74,7 +74,15 @@ export function useImportWizard(): UseImportWizardReturn {
   }, [])
 
   const setFileData = useCallback((data: WizardState['fileData']) => {
-    setState(prev => ({ ...prev, fileData: data }))
+    console.log('[useImportWizard] setFileData called - headers:', data?.headers)
+    console.log('[useImportWizard] setFileData called - first row raw:', JSON.stringify(data?.rows?.[0]))
+    // Clone the data to avoid any reference issues
+    const clonedData = data ? {
+      ...data,
+      rows: data.rows.map(row => ({...row}))
+    } : null
+    console.log('[useImportWizard] setFileData cloned first row:', clonedData?.rows?.[0])
+    setState(prev => ({ ...prev, fileData: clonedData }))
   }, [])
 
   const setColumnMapping = useCallback((mapping: ColumnMapping[]) => {
@@ -144,15 +152,55 @@ export function useImportWizard(): UseImportWizardReturn {
     
     setState(prev => ({ ...prev, previewRecords }))
     
-    // Extract new employees
-    const emails = [...new Set(records.map(r => r.email).filter(Boolean))]
-    const newEmps = emails.map(email => ({
-      email,
-      fullName: records.find(r => r.email === email)?.fullName || '',
-      rowNumbers: records.filter(r => r.email === email).map((_, i) => i + 1),
-      createProfile: true,
-      sendInvitation: false
-    }))
+    // Extract new employees - group by email OR by fullName if no email
+    const recordsWithEmail = records.filter(r => r.email && r.email.trim())
+    const recordsWithoutEmail = records.filter(r => !r.email || !r.email.trim())
+    
+    const newEmps: NewWorker[] = []
+    
+    // Group by email
+    const emailGroups = new Map<string, TransformedRecord[]>()
+    for (const record of recordsWithEmail) {
+      const existing = emailGroups.get(record.email) || []
+      existing.push(record)
+      emailGroups.set(record.email, existing)
+    }
+    
+    // Group by fullName for records without email
+    const nameGroups = new Map<string, TransformedRecord[]>()
+    for (const record of recordsWithoutEmail) {
+      if (record.fullName && record.fullName.trim()) {
+        const existing = nameGroups.get(record.fullName) || []
+        existing.push(record)
+        nameGroups.set(record.fullName, existing)
+      }
+    }
+    
+    // Create workers from email groups
+    for (const [email, recs] of emailGroups) {
+      const firstRecord = recs[0]
+      newEmps.push({
+        email,
+        fullName: firstRecord.fullName || '',
+        rowNumbers: recs.map((_, i) => i + 1),
+        createProfile: true,
+        sendInvitation: false
+      })
+    }
+    
+    // Create workers from name groups (for records without email)
+    for (const [fullName, recs] of nameGroups) {
+      const firstRecord = recs[0]
+      newEmps.push({
+        email: '', // No email for these workers
+        fullName: fullName,
+        rowNumbers: recs.map((_, i) => i + 1),
+        createProfile: true,
+        sendInvitation: false
+      })
+    }
+    
+    console.log('[ImportWizard] New workers extracted:', newEmps.length, newEmps)
     
     setState(prev => ({ ...prev, newWorkers: newEmps }))
   }, [])

@@ -215,31 +215,42 @@ export async function GET(request: Request) {
         day.hasDifference = true
       } else if (official && personal) {
         // Both exist, check for differences
-        const offClockIn = official.clock_in ? new Date(official.clock_in).getTime() : null
-        const perClockIn = personal.clock_in ? new Date(personal.clock_in).getTime() : null
-        const offClockOut = official.clock_out ? new Date(official.clock_out).getTime() : null
-        const perClockOut = personal.clock_out ? new Date(personal.clock_out).getTime() : null
+        // Normalize to time-of-day only (minutes from midnight) to avoid timezone/date issues
+        const normalizeToMinutes = (isoString: string | null): number | null => {
+          if (!isoString) return null
+          const date = new Date(isoString)
+          return date.getUTCHours() * 60 + date.getUTCMinutes()
+        }
 
-        const clockInDiff = offClockIn && perClockIn ? offClockIn - perClockIn : null
-        const clockOutDiff = offClockOut && perClockOut ? offClockOut - perClockOut : null
-        const hoursDiff = official.total_hours && personal.total_hours 
-          ? official.total_hours - personal.total_hours 
+        const offClockInMin = normalizeToMinutes(official.clock_in)
+        const perClockInMin = normalizeToMinutes(personal.clock_in)
+        const offClockOutMin = normalizeToMinutes(official.clock_out)
+        const perClockOutMin = normalizeToMinutes(personal.clock_out)
+
+        // Compare using minutes from midnight to avoid date/timezone mismatches
+        const clockInDiffMin = (offClockInMin !== null && perClockInMin !== null)
+          ? (offClockInMin - perClockInMin) : null
+        const clockOutDiffMin = (offClockOutMin !== null && perClockOutMin !== null)
+          ? (offClockOutMin - perClockOutMin) : null
+
+        // hoursDiff still uses total_hours from DB which is calculated correctly
+        const hoursDiff = official.total_hours && personal.total_hours
+          ? official.total_hours - personal.total_hours
           : null
 
-        const hasClockInDiff = clockInDiff !== null && Math.abs(clockInDiff) > 60000 // 1 minute threshold
-        const hasClockOutDiff = clockOutDiff !== null && Math.abs(clockOutDiff) > 60000
+        const hasClockInDiff = clockInDiffMin !== null && Math.abs(clockInDiffMin) > 1 // 1 minute threshold
+        const hasClockOutDiff = clockOutDiffMin !== null && Math.abs(clockOutDiffMin) > 1
         const hasHoursDiff = hoursDiff !== null && Math.abs(hoursDiff) > 0.01
 
         day.hasDifference = hasClockInDiff || hasClockOutDiff || hasHoursDiff
         day.matchStatus = day.hasDifference ? 'partial_match' : 'match'
-        
+
         if (day.hasDifference) {
           day.differences = {
-            clock_in_diff_minutes: clockInDiff ? Math.round(clockInDiff / 60000) : null, // minutes
-            clock_out_diff_minutes: clockOutDiff ? Math.round(clockOutDiff / 60000) : null, // minutes
+            clock_in_diff_minutes: clockInDiffMin,
+            clock_out_diff_minutes: clockOutDiffMin,
             hours_diff: hoursDiff,
           }
-          console.log(`[Comparison API] Difference detected on ${day.date}: clockInDiff=${hasClockInDiff}, clockOutDiff=${hasClockOutDiff}, hoursDiff=${hasHoursDiff}`)
         }
       }
     })

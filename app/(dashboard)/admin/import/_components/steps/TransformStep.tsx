@@ -33,6 +33,10 @@ function adaptAIRecord(aiRecord: AIRecord): TransformedRecord {
 }
 
 export function TransformStep({ headers, rows, onTransformComplete, onBack }: TransformStepProps) {
+  console.log('[TransformStep] Received headers:', headers)
+  console.log('[TransformStep] Received rows[0]:', rows[0])
+  console.log('[TransformStep] Info_Contacto value:', rows[0]?.['Info_Contacto'])
+  
   const [format, setFormat] = useState<FormatDetectionResult | null>(null)
   const [transformedRecords, setTransformedRecords] = useState<TransformedRecord[]>([])
   const [isManualOverride, setIsManualOverride] = useState(false)
@@ -157,13 +161,33 @@ export function TransformStep({ headers, rows, onTransformComplete, onBack }: Tr
       const result = await response.json()
       console.log('[AI Import] Result success:', result.success)
       console.log('[AI Import] Result transformedRecords count:', result.transformedRecords?.length)
+      console.log('[AI Import] Full result:', JSON.stringify(result, null, 2).substring(0, 500))
 
       if (!result.success) {
         throw new Error(result.error || 'El análisis de IA falló')
       }
 
-      const adaptedRecords = (result.transformedRecords || []).map(adaptAIRecord)
+      let adaptedRecords = (result.transformedRecords || []).map(adaptAIRecord)
       console.log('[AI Import] Adapted records count:', adaptedRecords.length)
+
+      // If AI returned no records, use fallback
+      if (adaptedRecords.length === 0) {
+        console.log('[AI Import] No records from AI, using local fallback')
+        // Use local format detection and transformation
+        const localFormat = FormatDetector.detect(headers)
+        console.log('[AI Import] Local format:', localFormat.type, localFormat.confidence)
+        
+        if (localFormat.type !== 'unknown') {
+          try {
+            const localRecords = DataTransformer.transform(headers, rows, localFormat)
+            console.log('[AI Import] Local transform result:', localRecords.length, 'records')
+            adaptedRecords = localRecords
+          } catch (err) {
+            console.error('[AI Import] Local transform error:', err)
+          }
+        }
+      }
+
       setTransformedRecords(adaptedRecords)
 
       if (result.format) {
@@ -199,12 +223,17 @@ export function TransformStep({ headers, rows, onTransformComplete, onBack }: Tr
                 <div className="flex items-center gap-3">
                   <h3 className="text-lg font-semibold">Formato Detectado</h3>
                   {aiStatus === 'success' && (
-                    <Badge className="bg-accent">
+                    <Badge className="bg-accent text-accent-foreground">
                       <Sparkles className="h-3 w-3 mr-1" />
                       IA
                     </Badge>
                   )}
-                  <Badge className={getConfidenceColor(format.confidence)}>
+                  <Badge 
+                    variant={
+                      format.confidence >= 0.9 ? 'success' : 
+                      format.confidence >= 0.7 ? 'warning' : 'destructive'
+                    }
+                  >
                     Confianza: {getConfidenceLabel(format.confidence)}
                   </Badge>
                 </div>

@@ -41,6 +41,9 @@ Detect these date formats (TRANSLATE Spanish formats to English for parsing):
 - DD.MM.YYYY: "16.03.2026"
 - Text formats: "16 de marzo 2026" → "March 16, 2026", "March 16, 2026"
 - Excel serial: numeric like 45385 (days since 1900)
+- MONTH-DAY format: "Mar-16", "Jan-15", "Feb-20", "Apr-10", "Nov-05" (Month abbreviation + day)
+- DAY-MONTH format: "16-Mar", "15-Jan", "20-Feb" (Day + Month abbreviation)
+- MONTH DAY YEAR: "March 16, 2026", "March 16 2026", "16 March 2026"
 
 ## Time Format Detection
 Detect these time formats:
@@ -48,6 +51,9 @@ Detect these time formats:
 - 12h AM/PM: "8:55 AM", "5:30 PM", "08:55 am"
 - Excel decimal: 0.354167 (represents 8:30 AM, where 0.5 = 12:00 PM)
 - Text: "8h 30", "8 horas 30 minutos", "8 hours 30 minutes"
+- COMBINED Entry-Exit format: "E:08:55AM - S:06:00PM", "E:09:00 - S:18:00", "Entrada 08:55 Salida 18:00"
+- Range format: "08:55-18:00", "08:55 a 18:00", "08:55 -> 18:00"
+- With labels: "Entrada: 08:55", "Salida: 18:00", "IN: 08:55", "OUT: 18:00"
 
 ## Column Type Detection
 Based on header names AND data values, detect column types:
@@ -55,6 +61,19 @@ Based on header names AND data values, detect column types:
 - **date**: columns with date values or date-like strings
 - **time**: columns with time values (hours, minutes, timestamps)
 - **text**: any other column (names, notes, etc.)
+
+## IMPORTANT: Info_Contacto Column
+If you see a column named "Info_Contacto", "InfoContacto", "Contacto", or similar:
+- This column contains BOTH email AND address in format: "email -- address" or "email - address"
+- ALWAYS extract the email from this column using regex: ([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})
+- The part before " -- " or " - " is the email
+- Example: "j.perez@empresa.com -- Av. Libertador 120" → extract "j.perez@empresa.com"
+
+## IMPORTANT: Name Columns
+If you see separate "Apellidos" and "Nombres" columns:
+- ALWAYS combine them as "full_name": "Nombres" + " " + "Apellidos"
+- Example: "Juan" + " " + "Pérez" → "Juan Pérez"
+- Do NOT use only Apellidos or only Nombres
 
 ## Transformation Rules
 1. Dates MUST be normalized to YYYY-MM-DD format
@@ -116,7 +135,8 @@ You MUST respond with a valid JSON object containing:
 export function buildUserPrompt(request: ImportAgentRequest): string {
   const { headers, rows, options } = request
   
-  const sampleRows = rows.slice(0, 20)
+  // Use 100 rows to give AI more context for pattern detection
+  const sampleRows = rows.slice(0, 100)
   
   let prompt = `Analyze this Excel/CSV file for time tracking import.\n\n`
   prompt += `## File Data\n\n`
@@ -141,7 +161,16 @@ export function buildUserPrompt(request: ImportAgentRequest): string {
   if (options?.skipEmptyHours) prompt += `- Skip empty hours: true\n`
   if (options?.validateEmail) prompt += `- Validate emails: true\n`
   
-  prompt += `\nProvide your analysis and transformation in JSON format.`
+  prompt += `\n\n## CRITICAL INSTRUCTIONS
+1. ANALYZE THE DATA VALUES, not just headers - patterns are in the data!
+2. Look for date-like strings in ANY column (not just date columns)
+3. Look for time-like patterns in cells (HH:MM, HH:MM AM/PM)
+4. Detect COMBINED entry-exit patterns like "E:08:55AM - S:06:00PM"
+5. Detect MONTH-ABBREVIATION formats like "Mar-16", "Jan-15" in headers or cells
+6. If columns have combined data (like "E:08:00 - S:18:00"), parse both times from the same cell
+7. Create one record per employee per date for horizontal formats
+  
+Provide your analysis and transformation in JSON format.`
   
   return prompt
 }

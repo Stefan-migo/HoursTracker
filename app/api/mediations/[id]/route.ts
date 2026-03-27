@@ -32,6 +32,15 @@ export async function GET(
 
     const isAdmin = profile?.role === 'admin'
 
+    // Fetch mediation process enabled setting
+    const { data: processSettings } = await supabase
+      .from('settings')
+      .select('value')
+      .eq('key', 'mediation_process_enabled')
+      .single()
+    
+    const mediationProcessEnabled = processSettings?.value?.enabled ?? true
+
     // Fetch mediation with all related data
     const { data: mediation, error } = await supabase
       .from('mediations')
@@ -216,6 +225,14 @@ export async function GET(
         proposed_at: mediation.counter_at,
       } : null,
 
+      suggested: mediation.suggested_at ? {
+        clock_in: mediation.suggested_clock_in,
+        clock_out: mediation.suggested_clock_out,
+        total_hours: mediation.suggested_total_hours,
+        suggested_by: mediation.suggested_by,
+        suggested_at: mediation.suggested_at,
+      } : null,
+
       differences: {
         clock_in_diff_minutes: clockInDiffMinutes,
         clock_out_diff_minutes: clockOutDiffMinutes,
@@ -233,15 +250,44 @@ export async function GET(
 
       notes: mediation.notes || [],
 
+      // Individual closure status
+      is_closed_by_admin: !!mediation.admin_closed_at,
+      is_closed_by_employee: !!mediation.employee_closed_at,
+      is_closed_by_me: isAdmin ? !!mediation.admin_closed_at : !!mediation.employee_closed_at,
+      
+      // Change notifications (set when other party updated their record)
+      sees_change: isAdmin ? mediation.employee_sees_change : mediation.admin_sees_change,
+
       permissions: {
         can_edit_own_record: isAdmin ? !!adminRecord : !!employeeRecord,
         can_edit_other_record: false,
-        can_propose: mediation.status === 'pending_review' || mediation.status === 'in_discussion',
-        can_accept: mediation.proposed_by && mediation.proposed_by !== user.id,
-        can_close: mediation.status !== 'resolved' && mediation.status !== 'closed_no_changes',
-        can_comment: true,
+        can_propose: mediationProcessEnabled && (mediation.status === 'pending_review' || mediation.status === 'in_discussion'),
+        can_accept_proposal: mediationProcessEnabled && !!mediation.proposed_by && mediation.proposed_by !== user.id && mediation.status !== 'resolved' && mediation.status !== 'closed_no_changes',
+        can_reject_proposal: mediationProcessEnabled && !!mediation.proposed_by && mediation.proposed_by !== user.id && mediation.status !== 'resolved' && mediation.status !== 'closed_no_changes',
+        can_counter_proposal: mediationProcessEnabled && !!mediation.proposed_by && mediation.proposed_by !== user.id && mediation.status !== 'resolved' && mediation.status !== 'closed_no_changes',
+        can_close: mediationProcessEnabled && mediation.status !== 'resolved' && mediation.status !== 'closed_no_changes',
+        can_close_view: !isAdmin ? !mediation.employee_closed_at : !mediation.admin_closed_at,
+        can_reopen_view: isAdmin ? !!mediation.admin_closed_at : !!mediation.employee_closed_at,
+        can_comment: mediationProcessEnabled,
         is_admin: isAdmin,
+        i_proposed: mediation.proposed_by === user.id,
+        has_proposal: !!mediation.proposed_by,
+        proposal_status: mediation.proposed_by === user.id ? 'waiting_accept' : (mediation.proposed_by && mediation.proposed_by !== user.id ? 'pending_my_accept' : null),
+        mediation_process_enabled: mediationProcessEnabled,
       },
+    }
+
+    // Reset the sees_change flag for this user and clear individual closure if viewing
+    const resetData: Record<string, unknown> = {}
+    if (isAdmin) {
+      if (mediation.employee_sees_change) resetData.employee_sees_change = false
+      // Clear admin's closed status when they view (allows reopening)
+    } else {
+      if (mediation.admin_sees_change) resetData.admin_sees_change = false
+    }
+
+    if (Object.keys(resetData).length > 0) {
+      await supabase.from('mediations').update(resetData).eq('id', id)
     }
 
     return NextResponse.json(response)
@@ -255,18 +301,20 @@ export async function GET(
 }
 
 const putSchema = z.object({
-  action: z.enum(['propose', 'accept', 'counter', 'close', 'comment', 'update_record']),
-  // For propose/counter/update_record
-  clock_in: z.string().optional().nullable(),
-  clock_out: z.string().optional().nullable(),
-  total_hours: z.number().optional().nullable(),
-  reason: z.string().optional(),
-  // For comment
-  comment: z.string().min(1).max(1000).optional(),
-  // For close
+  action: z.enum(['propose', 'accept', 'counter', 'reject', 'close', 'close_view', 'reopen_view', 'comment', 'update_record']),
+  // Common fields
+  comment: z.string().optional(),
   close_reason: z.string().optional(),
+  // For propose/counter/update_record
+  clock_in: z.string().optional(),
+  clock_out: z.string().optional(),
+  total_hours: z.number().nullable().optional(),
+  reason: z.string().optional(),
   // For update_record
   time_log_id: z.string().uuid().optional(),
+  // Display strings for timezone-correct messages (optional)
+  clock_in_display: z.string().optional(),
+  clock_out_display: z.string().optional(),
 })
 
 // PUT /api/mediations/[id] - Update mediation (propose, accept, close, comment)
@@ -337,31 +385,24 @@ export async function PUT(
       updated_at: now,
     }
 
-    // Helper function to convert time string (HH:MM) to UTC timestamp
-    // The input is local time (Chile UTC-3), we need to convert to UTC for storage
+    // Helper function to convert time string (HH:MM) to ISO timestamp in local time for storage
     const timeToTimestamp = (timeString: string | null | undefined): string | null => {
       if (!timeString) return null
       
-      // Parse the time components
       const [hours, minutes] = timeString.split(':').map(Number)
       
-      // Create the date string in ISO format with explicit UTC offset for Chile (UTC-3)
-      // Chile is UTC-3, so we need to add 3 hours to get UTC
-      const utcHours = hours + 3
+      // Create date in local time
+      const baseDate = new Date(mediation.date + 'T00:00:00')
+      baseDate.setHours(hours, minutes, 0, 0)
       
-      // Handle day overflow (if hours + 3 >= 24)
-      const baseDate = new Date(mediation.date)
-      if (utcHours >= 24) {
-        baseDate.setDate(baseDate.getDate() + 1)
-      }
-      
-      const finalHours = utcHours % 24
-      const year = baseDate.getFullYear()
-      const month = String(baseDate.getMonth() + 1).padStart(2, '0')
-      const day = String(baseDate.getDate()).padStart(2, '0')
-      
-      // Return ISO string in UTC
-      return `${year}-${month}-${day}T${String(finalHours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:00Z`
+      return baseDate.toISOString()
+    }
+
+    // Helper function to extract time from ISO timestamp (HH:MM) in local time
+    const extractTimeFromTimestamp = (timestamp: string | null): string | null => {
+      if (!timestamp) return null
+      const date = new Date(timestamp)
+      return `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`
     }
 
     // Handle different actions
@@ -420,7 +461,6 @@ export async function PUT(
           )
         }
 
-        // Determine which values to use based on who proposed
         const isProposingParty = mediation.proposed_by === user.id
         if (isProposingParty) {
           return NextResponse.json(
@@ -429,8 +469,90 @@ export async function PUT(
           )
         }
 
-        updateData.status = 'agreement_reached'
-        
+        const clockIn = mediation.proposed_clock_in
+        const clockOut = mediation.proposed_clock_out
+        const totalHours = mediation.proposed_total_hours
+
+        if (mediation.admin_time_log_id) {
+          const { error: adminUpdateError } = await supabase
+            .from('time_logs')
+            .update({
+              clock_in: clockIn,
+              clock_out: clockOut,
+              total_hours: totalHours,
+              edited_by: user.id,
+              edited_at: now,
+              edit_reason: 'Mediación resuelta - acuerdo mutuo',
+            })
+            .eq('id', mediation.admin_time_log_id)
+
+          if (adminUpdateError) {
+            const { message, status } = handleSupabaseError(adminUpdateError)
+            return NextResponse.json({ error: message }, { status })
+          }
+        }
+
+        if (mediation.employee_time_log_id) {
+          const { error: employeeUpdateError } = await supabase
+            .from('time_logs')
+            .update({
+              clock_in: clockIn,
+              clock_out: clockOut,
+              total_hours: totalHours,
+              edited_by: user.id,
+              edited_at: now,
+              edit_reason: 'Mediación resuelta - acuerdo mutuo',
+            })
+            .eq('id', mediation.employee_time_log_id)
+
+          if (employeeUpdateError) {
+            const { message, status } = handleSupabaseError(employeeUpdateError)
+            return NextResponse.json({ error: message }, { status })
+          }
+        }
+
+        updateData.status = 'resolved'
+        updateData.resolved_at = now
+        updateData.resolved_by = user.id
+        updateData.resolution_notes = `Acuerdo alcanzado el ${new Date().toLocaleDateString('es-CL')}`
+
+        if (isAdmin) {
+          updateData.admin_last_activity_at = now
+        } else {
+          updateData.employee_last_activity_at = now
+        }
+        updateData.last_activity_by = user.id
+        break
+
+      case 'reject':
+        if (!mediation.proposed_by) {
+          return NextResponse.json(
+            { error: 'No hay propuesta para rechazar' },
+            { status: 400 }
+          )
+        }
+
+        const isProposingPartyReject = mediation.proposed_by === user.id
+        if (isProposingPartyReject) {
+          return NextResponse.json(
+            { error: 'No puedes rechazar tu propia propuesta' },
+            { status: 400 }
+          )
+        }
+
+        const rejectNote = {
+          id: crypto.randomUUID(),
+          author_id: user.id,
+          author_name: profile?.full_name || (isAdmin ? 'Administrador' : 'Empleado'),
+          author_role: isAdmin ? 'admin' : 'employee',
+          content: 'rechazó la propuesta. Continúen discutiendo en el chat para encontrar una solución.',
+          type: 'system' as const,
+          created_at: now,
+        }
+
+        updateData.notes = [...(mediation.notes || []), rejectNote]
+        updateData.status = 'in_discussion'
+
         if (isAdmin) {
           updateData.admin_last_activity_at = now
         } else {
@@ -445,6 +567,26 @@ export async function PUT(
         updateData.resolved_by = user.id
         updateData.resolution_notes = body.close_reason || 'Cerrado sin cambios'
         updateData.is_active = false
+        break
+
+      case 'close_view':
+        // Individual closure - only affects the user's own view
+        if (isAdmin) {
+          updateData.admin_closed_at = now
+        } else {
+          updateData.employee_closed_at = now
+        }
+        updateData.last_activity_by = user.id
+        break
+
+      case 'reopen_view':
+        // Reopen individual view - only affects the user's own view
+        if (isAdmin) {
+          updateData.admin_closed_at = null
+        } else {
+          updateData.employee_closed_at = null
+        }
+        updateData.last_activity_by = user.id
         break
 
       case 'comment':
@@ -476,7 +618,6 @@ export async function PUT(
         break
 
       case 'update_record':
-        // Update the actual time log record
         if (!body.time_log_id) {
           return NextResponse.json(
             { error: 'ID de registro requerido' },
@@ -484,12 +625,30 @@ export async function PUT(
           )
         }
 
+        const proposedClockIn = timeToTimestamp(body.clock_in)
+        const proposedClockOut = timeToTimestamp(body.clock_out)
+        
+        // Calculate total hours if not provided
+        let proposedTotalHours = body.total_hours || null
+        if (!proposedTotalHours && proposedClockIn && proposedClockOut) {
+          const inDate = new Date(proposedClockIn)
+          const outDate = new Date(proposedClockOut)
+          const diffMs = outDate.getTime() - inDate.getTime()
+          if (diffMs > 0) {
+            proposedTotalHours = Math.round((diffMs / (1000 * 60 * 60)) * 10) / 10
+          }
+        }
+
+        // Use display strings if provided (from client in local time), otherwise extract from timestamp
+        const displayClockIn = body.clock_in_display || extractTimeFromTimestamp(proposedClockIn) || '--:--'
+        const displayClockOut = body.clock_out_display || extractTimeFromTimestamp(proposedClockOut) || '--:--'
+
         const { error: updateLogError } = await supabase
           .from('time_logs')
           .update({
-            clock_in: timeToTimestamp(body.clock_in),
-            clock_out: timeToTimestamp(body.clock_out),
-            total_hours: body.total_hours || null,
+            clock_in: proposedClockIn,
+            clock_out: proposedClockOut,
+            total_hours: proposedTotalHours,
             edited_by: user.id,
             edited_at: now,
             edit_reason: body.reason || 'Ajuste en mediación',
@@ -501,20 +660,75 @@ export async function PUT(
           return NextResponse.json({ error: message }, { status })
         }
 
-        // Add system note
         const systemNote = {
           id: crypto.randomUUID(),
           author_id: user.id,
           author_name: profile?.full_name || (isAdmin ? 'Administrador' : 'Empleado'),
           author_role: isAdmin ? 'admin' : 'employee',
-          content: `Actualizó el registro de ${isAdmin ? 'administrador' : 'empleado'}`,
+          content: `Propuso nuevos horarios: ${displayClockIn} - ${displayClockOut} (${proposedTotalHours || 0}h)`,
           type: 'system',
           created_at: now,
         }
 
-        updateData.notes = [...(mediation.notes || []), systemNote]
+        const currentNotes: Array<{
+          id: string
+          author_id: string
+          author_name: string
+          author_role: string
+          content: string
+          type: string
+          created_at: string
+        }> = mediation.notes || []
+
+        updateData.proposed_clock_in = proposedClockIn
+        updateData.proposed_clock_out = proposedClockOut
+        updateData.proposed_total_hours = proposedTotalHours
+        updateData.proposed_by = user.id
+        updateData.proposed_at = now
+
+        let finalNotes = [...currentNotes, systemNote]
+
+        const isAdminRecord = body.time_log_id === mediation.admin_time_log_id
+        const otherLogId = isAdminRecord
+          ? mediation.employee_time_log_id
+          : mediation.admin_time_log_id
+
+        if (otherLogId) {
+          const { data: otherLog } = await supabase
+            .from('time_logs')
+            .select('clock_in, clock_out, total_hours')
+            .eq('id', otherLogId)
+            .single()
+
+          if (otherLog) {
+            const normalizeToMinutes = (isoString: string | null): number | null => {
+              if (!isoString) return null
+              const date = new Date(isoString)
+              return date.getUTCHours() * 60 + date.getUTCMinutes()
+            }
+
+            const proposedIn = proposedClockIn ? normalizeToMinutes(proposedClockIn) : null
+            const proposedOut = proposedClockOut ? normalizeToMinutes(proposedClockOut) : null
+            const otherIn = otherLog.clock_in ? normalizeToMinutes(otherLog.clock_in) : null
+            const otherOut = otherLog.clock_out ? normalizeToMinutes(otherLog.clock_out) : null
+
+            const clockInMatch = proposedIn !== null && otherIn !== null && Math.abs(proposedIn - otherIn) <= 1
+            const clockOutMatch = (proposedOut === null && otherOut === null) || 
+              (proposedOut !== null && otherOut !== null && Math.abs(proposedOut - otherOut) <= 1)
+
+            if (clockInMatch && clockOutMatch) {
+              updateData.suggested_clock_in = proposedClockIn
+              updateData.suggested_clock_out = proposedClockOut
+              updateData.suggested_total_hours = proposedTotalHours
+              updateData.suggested_by = user.id
+              updateData.suggested_at = now
+            }
+          }
+        }
+
+        updateData.notes = finalNotes
         updateData.status = 'in_discussion'
-        
+
         if (isAdmin) {
           updateData.admin_last_activity_at = now
         } else {

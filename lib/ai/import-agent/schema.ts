@@ -125,7 +125,11 @@ export const DATE_FORMATS_TO_DETECT = [
   { format: 'DD-MM-YYYY', pattern: /^(\d{1,2})-(\d{1,2})-(\d{4})$/, example: '16-03-2026' },
   { format: 'DD.MM.YYYY', pattern: /^(\d{1,2})\.(\d{1,2})\.(\d{4})$/, example: '16.03.2026' },
   { format: 'DD_MM_YYYY', pattern: /^(\d{1,2})_(\d{1,2})_(\d{4})$/, example: '16_03_2026' },
-  { format: 'YYYY/MM/DD', pattern: /^(\d{4})\/(\d{1,2})\/(\d{1,2})$/, example: '2026/03/16' }
+  { format: 'YYYY/MM/DD', pattern: /^(\d{4})\/(\d{1,2})\/(\d{1,2})$/, example: '2026/03/16' },
+  // Month abbreviation formats (NEW)
+  { format: 'MMM-DD', pattern: /^(Ene|Feb|Mar|Abr|May|Jun|Jul|Ago|Sep|Oct|Nov|Dic|Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[-\s](\d{1,2})$/i, example: 'Mar-16' },
+  { format: 'DD-MMM', pattern: /^(\d{1,2})[-\s](Ene|Feb|Mar|Abr|May|Jun|Jul|Ago|Sep|Oct|Nov|Dic|Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dic)$/i, example: '16-Mar' },
+  { format: 'MMM DD, YYYY', pattern: /^(Ene|Feb|Mar|Abr|May|Jun|Jul|Ago|Sep|Oct|Nov|Dic|Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s+(\d{1,2}),?\s+(\d{4})$/i, example: 'March 16, 2026' },
 ] as const
 
 export const TIME_FORMATS_TO_DETECT = [
@@ -134,7 +138,14 @@ export const TIME_FORMATS_TO_DETECT = [
   { format: 'H:MM', pattern: /^(\d{1,2}):(\d{2})$/, example: '8:55', normalize: (h: number, m: number) => `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}` },
   { format: 'H:MM:SS', pattern: /^(\d{1,2}):(\d{2}):(\d{2})$/, example: '8:55:30' },
   { format: '12h_AM_PM', pattern: /^(\d{1,2}):(\d{2})\s*(AM|PM|am|pm)$/, example: '8:55 AM', normalize: (h: number, m: number, ampm: string) => { const hour = ampm.toUpperCase() === 'PM' && h !== 12 ? h + 12 : (ampm.toUpperCase() === 'AM' && h === 12 ? 0 : h); return `${hour.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}` } },
-  { format: 'decimal_excel', description: 'Excel decimal format where 0.354167 represents 8:30 AM', example: '0.354167' }
+  { format: 'decimal_excel', description: 'Excel decimal format where 0.354167 represents 8:30 AM', example: '0.354167' },
+  // COMBINED Entry-Exit formats (NEW)
+  { format: 'E:HH:MM - S:HH:MM', pattern: /^E:(\d{1,2}:\d{2})\s*(AM|PM|am|pm)?\s*[-–]\s*S:(\d{1,2}:\d{2})\s*(AM|PM|am|pm)?$/i, example: 'E:08:55AM - S:06:00PM', isCombined: true },
+  { format: 'Entrada HH:MM - Salida HH:MM', pattern: /^Entrada[:\s]+(\d{1,2}:\d{2})\s*(AM|PM|am|pm)?\s*[-–]\s*Salida[:\s]+(\d{1,2}:\d{2})\s*(AM|PM|am|pm)?$/i, example: 'Entrada 08:55 - Salida 18:00', isCombined: true },
+  { format: 'IN:HH:MM - OUT:HH:MM', pattern: /^IN[:\s]+(\d{1,2}:\d{2})\s*(AM|PM|am|pm)?\s*[-–]\s*OUT[:\s]+(\d{1,2}:\d{2})\s*(AM|PM|am|pm)?$/i, example: 'IN:08:55 - OUT:18:00', isCombined: true },
+  // Range formats
+  { format: 'HH:MM-HH:MM', pattern: /^(\d{1,2}:\d{2})\s*[-–>]\s*(\d{1,2}:\d{2})$/, example: '08:55-18:00' },
+  { format: 'HH:MM a HH:MM', pattern: /^(\d{1,2}:\d{2})\s+a\s+(\d{1,2}:\d{2})$/, example: '08:55 a 18:00' },
 ] as const
 
 export const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/

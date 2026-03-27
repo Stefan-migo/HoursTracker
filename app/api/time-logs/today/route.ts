@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { getLocalDateString } from '@/lib/utils'
 
 export async function GET() {
   const supabase = await createClient()
@@ -9,7 +10,7 @@ export async function GET() {
     return NextResponse.json({ error: 'No autenticado' }, { status: 401 })
   }
 
-  const today = new Date().toISOString().split('T')[0]
+  const today = getLocalDateString()
 
   const { data, error } = await supabase
     .from('time_logs')

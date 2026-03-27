@@ -18,10 +18,12 @@ export function WorkerStep({ wizard }: WorkerStepProps) {
   const [selectAllCreate, setSelectAllCreate] = useState(false)
   const [selectAllInvite, setSelectAllInvite] = useState(false)
 
+  const getWorkerKey = (emp: NewWorker) => emp.email || emp.fullName || `worker-${emp.rowNumbers[0]}`
+
   const handleSelectAllCreate = (checked: boolean) => {
     setSelectAllCreate(checked)
     state.newWorkers.forEach(emp => {
-      updateNewWorker(emp.email, { createProfile: checked })
+      updateNewWorker(getWorkerKey(emp), { createProfile: checked })
     })
   }
 
@@ -29,7 +31,7 @@ export function WorkerStep({ wizard }: WorkerStepProps) {
     setSelectAllInvite(checked)
     state.newWorkers.forEach(emp => {
       if (emp.createProfile) {
-        updateNewWorker(emp.email, { sendInvitation: checked })
+        updateNewWorker(getWorkerKey(emp), { sendInvitation: checked })
       }
     })
   }
@@ -44,7 +46,7 @@ export function WorkerStep({ wizard }: WorkerStepProps) {
           <Users className="h-12 w-12 mx-auto mb-4 text-foreground-secondary" />
           <h3 className="text-lg font-medium mb-2">No se detectaron trabajadores nuevos</h3>
           <p className="text-sm text-foreground-secondary">
-            Todos los emails en el archivo ya existen en el sistema.
+            Todos los registros en el archivo ya existen en el sistema o no tienen datos válidos.
             Puedes continuar con la importación.
           </p>
         </CardContent>
@@ -60,8 +62,8 @@ export function WorkerStep({ wizard }: WorkerStepProps) {
           <strong>Trabajadores nuevos detectados</strong>
         </p>
         <p className="text-sm text-accent/80 mt-1">
-          Se encontraron {state.newWorkers.length} emails que no existen en el sistema. 
-          Selecciona cuáles deseas crear y si deseas enviarles invitación.
+          Se encontraron {state.newWorkers.length} trabajadores que no existen en el sistema. 
+          Selecciona cuáles deseas crear y si deseas enviarles invitación por email.
         </p>
       </div>
 
@@ -98,65 +100,77 @@ export function WorkerStep({ wizard }: WorkerStepProps) {
 
       {/* Employee Cards */}
       <div className="space-y-4 max-h-[400px] overflow-y-auto">
-        {state.newWorkers.map((employee) => (
-          <Card 
-            key={employee.email}
-            className={`
-              bg-background border-border transition-all
-              ${!employee.createProfile ? 'opacity-60' : ''}
-            `}
-          >
-            <CardContent className="p-4 space-y-4">
-              {/* Email Header */}
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <Checkbox
-                    checked={employee.createProfile}
-                    onCheckedChange={(checked) => 
-                      updateNewWorker(employee.email, { createProfile: checked as boolean })
-                    }
-                  />
-                  <span className="font-medium">{employee.email}</span>
-                </div>
-                <Badge variant="secondary" className="text-xs">
-                  {employee.rowNumbers.length} registros
-                </Badge>
-              </div>
-
-              {/* Details (only if creating) */}
-              {employee.createProfile && (
-                <div className="pl-6 space-y-3">
-                  <div>
-                    <label className="text-sm font-medium mb-1 block">
-                      Nombre completo <span className="text-error">*</span>
-                    </label>
-                    <Input
-                      value={employee.fullName}
-                      onChange={(e) => 
-                        updateNewWorker(employee.email, { fullName: e.target.value })
+        {state.newWorkers.map((employee) => {
+          const key = getWorkerKey(employee)
+          return (
+            <Card 
+              key={key}
+              className={`
+                bg-background border-border transition-all
+                ${!employee.createProfile ? 'opacity-60' : ''}
+              `}
+            >
+              <CardContent className="p-4 space-y-4">
+                {/* Email Header */}
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Checkbox
+                      checked={employee.createProfile}
+                      onCheckedChange={(checked) => 
+                        updateNewWorker(key, { createProfile: checked as boolean })
                       }
-                      placeholder="Ej: Juan Pérez"
-                      className={!employee.fullName.trim() ? 'border-error' : ''}
                     />
-                    {!employee.fullName.trim() && (
-                      <p className="text-xs text-error mt-1">El nombre es obligatorio</p>
+                    <span className="font-medium">
+                      {employee.email || employee.fullName || '(Sin identificar)'}
+                    </span>
+                  </div>
+                  <Badge variant="secondary" className="text-xs">
+                    {employee.rowNumbers.length} registros
+                  </Badge>
+                </div>
+
+                {/* Details (only if creating) */}
+                {employee.createProfile && (
+                  <div className="pl-6 space-y-3">
+                    {employee.email && (
+                      <div className="text-sm text-foreground-secondary">
+                        Email: {employee.email}
+                      </div>
+                    )}
+                    <div>
+                      <label className="text-sm font-medium mb-1 block">
+                        Nombre completo <span className="text-error">*</span>
+                      </label>
+                      <Input
+                        value={employee.fullName}
+                        onChange={(e) => 
+                          updateNewWorker(key, { fullName: e.target.value })
+                        }
+                        placeholder="Ej: Juan Pérez"
+                        className={!employee.fullName.trim() ? 'border-error' : ''}
+                      />
+                      {!employee.fullName.trim() && (
+                        <p className="text-xs text-error mt-1">El nombre es obligatorio</p>
+                      )}
+                    </div>
+
+                    {employee.email && (
+                      <label className="flex items-center gap-2 cursor-pointer">
+                        <Checkbox
+                          checked={employee.sendInvitation}
+                          onCheckedChange={(checked) => 
+                            updateNewWorker(key, { sendInvitation: checked as boolean })
+                          }
+                        />
+                        <span className="text-sm">Enviar email de invitación</span>
+                      </label>
                     )}
                   </div>
-
-                  <label className="flex items-center gap-2 cursor-pointer">
-                    <Checkbox
-                      checked={employee.sendInvitation}
-                      onCheckedChange={(checked) => 
-                        updateNewWorker(employee.email, { sendInvitation: checked as boolean })
-                      }
-                    />
-                    <span className="text-sm">Enviar email de invitación</span>
-                  </label>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        ))}
+                )}
+              </CardContent>
+            </Card>
+          )
+        })}
       </div>
     </div>
   )

@@ -120,10 +120,24 @@ export async function POST(request: Request) {
 
     const { clock_in, clock_out, date, is_manual, is_official, notes } = validationResult.data
 
-    // Convert local datetime strings to UTC for PostgreSQL TIMESTAMPTZ
-    // clock_in and clock_out are in format "YYYY-MM-DDTHH:MM:SS" (local time)
-    const clockInUTC = new Date(clock_in).toISOString()
-    const clockOutUTC = clock_out ? new Date(clock_out).toISOString() : null
+    // Convert local time to UTC for PostgreSQL TIMESTAMPTZ
+    // Handle both HH:MM format and full ISO format
+    const convertToUTC = (timeStr: string): string => {
+      if (!timeStr) return timeStr
+      
+      // If it's a full ISO string (contains 'T'), parse normally
+      if (timeStr.includes('T')) {
+        return new Date(timeStr).toISOString()
+      }
+      
+      // If it's just HH:MM, combine with the date
+      const [hours, minutes] = timeStr.split(':')
+      const localDateTime = new Date(`${date}T${hours}:${minutes}:00`)
+      return localDateTime.toISOString()
+    }
+
+    const clockInUTC = convertToUTC(clock_in)
+    const clockOutUTC = clock_out ? convertToUTC(clock_out) : null
 
     // Check for existing record of the same type (personal) for this date
     // Note: Employees can only create personal records (is_official = false)

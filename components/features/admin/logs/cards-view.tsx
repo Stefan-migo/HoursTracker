@@ -37,6 +37,17 @@ interface CardsViewProps {
   employeesList: Employee[]
   dateRange: { start: Date | null; end: Date | null }
   onEmployeeClick: (employeeId: string) => void
+  onLogEdit?: (log: {
+    id: string
+    date: string
+    clock_in: string
+    clock_out: string | null
+    total_hours?: number | null
+    is_official?: boolean
+    user_id: string
+    profiles: { id: string; full_name: string; email: string }
+  }) => void
+  onLogsRefresh?: () => void
   isLoading?: boolean
 }
 
@@ -45,6 +56,8 @@ export function CardsView({
   employeesList,
   dateRange,
   onEmployeeClick,
+  onLogEdit,
+  onLogsRefresh,
   isLoading = false,
 }: CardsViewProps) {
   const [selectedEmployeeId, setSelectedEmployeeId] = React.useState<string | null>(null)
@@ -57,9 +70,7 @@ export function CardsView({
     [employees, selectedEmployeeId]
   )
 
-  const handleCardClick = async (employeeId: string) => {
-    setSelectedEmployeeId(employeeId)
-    setSheetOpen(true)
+  const fetchEmployeeLogs = React.useCallback(async (employeeId: string) => {
     setIsLoadingLogs(true)
 
     try {
@@ -83,7 +94,24 @@ export function CardsView({
     } finally {
       setIsLoadingLogs(false)
     }
+  }, [dateRange])
+
+  React.useEffect(() => {
+    if (selectedEmployeeId && sheetOpen) {
+      fetchEmployeeLogs(selectedEmployeeId)
+    }
+  }, [selectedEmployeeId, sheetOpen, fetchEmployeeLogs])
+
+  const handleCardClick = async (employeeId: string) => {
+    setSelectedEmployeeId(employeeId)
+    setSheetOpen(true)
   }
+
+  React.useEffect(() => {
+    if (onLogsRefresh && selectedEmployeeId && sheetOpen) {
+      fetchEmployeeLogs(selectedEmployeeId)
+    }
+  }, [onLogsRefresh, selectedEmployeeId, sheetOpen, fetchEmployeeLogs])
 
   const handleSheetClose = () => {
     setSheetOpen(false)
@@ -179,6 +207,7 @@ export function CardsView({
         logs={selectedEmployeeLogs}
         isLoading={isLoadingLogs}
         onViewAll={handleViewAll}
+        onLogEdit={onLogEdit}
       />
     </>
   )

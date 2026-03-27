@@ -4,9 +4,10 @@ import { useState } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog'
+import { VisuallyHidden } from '@/components/ui/visually-hidden'
 import { Input } from '@/components/ui/input'
-import { AlertTriangle, MessageCircle, ArrowLeft, Loader2, Calendar, Clock, User } from 'lucide-react'
+import { AlertTriangle, MessageCircle, Loader2, Calendar, Clock, User, Settings2 } from 'lucide-react'
 import { formatDate } from '@/lib/utils'
 import { 
   useMediations, 
@@ -15,10 +16,11 @@ import {
   type Mediation
 } from '@/components/features/mediations'
 import { MediationWorkspace } from '@/components/features/mediations'
+import { useMediationSettings } from '@/components/features/mediations/hooks/useMediationSettings'
 
 const statusLabels: Record<MediationStatus, string> = {
   pending_review: 'Pendiente de revisión',
-  in_discussion: 'En conversación',
+  in_discussion: 'En mediación',
   agreement_reached: 'Acuerdo alcanzado',
   resolved: 'Resuelto',
   closed_no_changes: 'Cerrado',
@@ -36,16 +38,21 @@ export default function AdminMediationsPage() {
   const [filter, setFilter] = useState<MediationStatus | 'all'>('all')
   const [selectedMediationId, setSelectedMediationId] = useState<string | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
+  const [activeTab, setActiveTab] = useState<'active' | 'history'>('active')
 
   const { mediations, summary, isLoading, refetch } = useMediations({
     status: filter,
   })
 
   const { mediation: selectedMediation, refetch: refetchDetail } = useMediationDetail(selectedMediationId)
+  const { mediationsEnabled, mediationProcessEnabled, isLoading: settingsLoading, toggleMediations, toggleMediationProcess } = useMediationSettings()
 
   const filteredMediations = mediations.filter(m => 
-    m.employee.full_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    m.employee.email.toLowerCase().includes(searchQuery.toLowerCase())
+    (m.employee.full_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    m.employee.email.toLowerCase().includes(searchQuery.toLowerCase())) &&
+    (activeTab === 'active' 
+      ? m.status === 'pending_review' || m.status === 'in_discussion'
+      : m.status === 'resolved' || m.status === 'closed_no_changes')
   )
 
   const handleUpdate = () => {
@@ -68,11 +75,50 @@ export default function AdminMediationsPage() {
             Gestiona mediaciones colaborativas de registros de tiempo
           </p>
         </div>
+        <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 text-sm">
+            <Settings2 className="h-4 w-4 text-foreground-secondary" />
+            <span className="text-foreground-secondary">Visibilidad:</span>
+            {settingsLoading ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => toggleMediations(!mediationsEnabled)}
+                className={mediationsEnabled 
+                  ? 'border-success/50 text-success hover:text-success hover:border-success' 
+                  : 'border-error/50 text-error hover:text-error hover:border-error'
+                }
+              >
+                {mediationsEnabled ? 'Visible' : 'Oculta'}
+              </Button>
+            )}
+          </div>
+          <div className="flex items-center gap-2 text-sm">
+            <span className="text-foreground-secondary">Proceso:</span>
+            {settingsLoading ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => toggleMediationProcess(!mediationProcessEnabled)}
+                className={mediationProcessEnabled 
+                  ? 'border-success/50 text-success hover:text-success hover:border-success' 
+                  : 'border-error/50 text-error hover:text-error hover:border-error'
+                }
+              >
+                {mediationProcessEnabled ? 'Activo' : 'Inactivo'}
+              </Button>
+            )}
+          </div>
+        </div>
       </div>
 
       {/* Stats */}
       {summary && (
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           <Card>
             <CardHeader className="pb-2">
               <CardTitle className="text-sm font-medium">Total</CardTitle>
@@ -91,7 +137,7 @@ export default function AdminMediationsPage() {
           </Card>
           <Card>
             <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-warning">En Discusión</CardTitle>
+              <CardTitle className="text-sm font-medium text-warning">En Mediación</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold text-warning">{summary.in_discussion}</div>
@@ -99,18 +145,10 @@ export default function AdminMediationsPage() {
           </Card>
           <Card>
             <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-success">Acuerdo</CardTitle>
+              <CardTitle className="text-sm font-medium text-success">Resueltas</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-success">{summary.agreement_reached}</div>
-            </CardContent>
-          </Card>
-          <Card className={summary.stale_count > 0 ? 'border-warning/50' : ''}>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-error">Inactivas</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-error">{summary.stale_count}</div>
+              <div className="text-2xl font-bold text-success">{summary.resolved || 0}</div>
             </CardContent>
           </Card>
         </div>
@@ -130,26 +168,42 @@ export default function AdminMediationsPage() {
               />
               <div className="flex rounded-md border border-border">
                 <button
-                  onClick={() => setFilter('all')}
-                  className={`px-3 py-1.5 text-sm font-medium transition-colors ${filter === 'all' ? 'bg-accent text-white' : 'bg-background text-foreground-secondary hover:bg-background-secondary'}`}
+                  onClick={() => setActiveTab('active')}
+                  className={`px-3 py-1.5 text-sm font-medium transition-colors ${activeTab === 'active' ? 'bg-accent text-white' : 'bg-background text-foreground-secondary hover:bg-background-secondary'}`}
                 >
-                  Todas
+                  Activas
                 </button>
                 <button
-                  onClick={() => setFilter('pending_review')}
-                  className={`px-3 py-1.5 text-sm font-medium transition-colors ${filter === 'pending_review' ? 'bg-accent text-white' : 'bg-background text-foreground-secondary hover:bg-background-secondary'}`}
+                  onClick={() => setActiveTab('history')}
+                  className={`px-3 py-1.5 text-sm font-medium transition-colors ${activeTab === 'history' ? 'bg-accent text-white' : 'bg-background text-foreground-secondary hover:bg-background-secondary'}`}
                 >
-                  Pendientes
-                </button>
-                <button
-                  onClick={() => setFilter('in_discussion')}
-                  className={`px-3 py-1.5 text-sm font-medium transition-colors ${filter === 'in_discussion' ? 'bg-warning text-white' : 'bg-background text-foreground-secondary hover:bg-background-secondary'}`}
-                >
-                  En Discusión
+                  Historial
                 </button>
               </div>
             </div>
           </div>
+          {activeTab === 'active' && (
+            <div className="flex rounded-md border border-border mt-4 w-fit">
+              <button
+                onClick={() => setFilter('all')}
+                className={`px-3 py-1.5 text-sm font-medium transition-colors ${filter === 'all' ? 'bg-accent text-white' : 'bg-background text-foreground-secondary hover:bg-background-secondary'}`}
+              >
+                Todas
+              </button>
+              <button
+                onClick={() => setFilter('pending_review')}
+                className={`px-3 py-1.5 text-sm font-medium transition-colors ${filter === 'pending_review' ? 'bg-accent text-white' : 'bg-background text-foreground-secondary hover:bg-background-secondary'}`}
+              >
+                Pendientes
+              </button>
+              <button
+                onClick={() => setFilter('in_discussion')}
+                className={`px-3 py-1.5 text-sm font-medium transition-colors ${filter === 'in_discussion' ? 'bg-warning text-white' : 'bg-background text-foreground-secondary hover:bg-background-secondary'}`}
+              >
+                En Mediación
+              </button>
+            </div>
+          )}
         </CardHeader>
         <CardContent>
           {isLoading ? (
@@ -158,8 +212,18 @@ export default function AdminMediationsPage() {
             </div>
           ) : filteredMediations.length === 0 ? (
             <div className="text-center py-12 text-foreground-secondary">
-              <MessageCircle className="h-12 w-12 mx-auto mb-3 opacity-50" />
-              <p>No hay mediaciones {filter !== 'all' ? 'en este estado' : ''}</p>
+              {activeTab === 'active' ? (
+                <>
+                  <MessageCircle className="h-12 w-12 mx-auto mb-3 opacity-50" />
+                  <p className="text-lg font-medium text-foreground">No hay inconsistencias en los registros</p>
+                  <p className="text-sm mt-1">Todos los registros están correctos</p>
+                </>
+              ) : (
+                <>
+                  <MessageCircle className="h-12 w-12 mx-auto mb-3 opacity-50" />
+                  <p>No hay mediaciones en el historial</p>
+                </>
+              )}
             </div>
           ) : (
             <div className="space-y-3">
@@ -168,6 +232,7 @@ export default function AdminMediationsPage() {
                   key={mediation.id}
                   mediation={mediation}
                   onClick={() => setSelectedMediationId(mediation.id)}
+                  isHistory={activeTab === 'history'}
                 />
               ))}
             </div>
@@ -178,16 +243,9 @@ export default function AdminMediationsPage() {
       {/* Detail Dialog */}
       <Dialog open={!!selectedMediationId} onOpenChange={(open) => !open && handleClose()}>
         <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <div className="flex items-center gap-4">
-              <Button variant="ghost" size="sm" onClick={handleClose}>
-                <ArrowLeft className="h-4 w-4 mr-2" />
-                Volver
-              </Button>
-              <DialogTitle>Mediación</DialogTitle>
-            </div>
-          </DialogHeader>
-          
+          <VisuallyHidden>
+            <DialogTitle>Mediación</DialogTitle>
+          </VisuallyHidden>
           {selectedMediation && (
             <MediationWorkspace
               mediationId={selectedMediationId!}
@@ -204,15 +262,20 @@ export default function AdminMediationsPage() {
 // List item component
 function MediationListItem({ 
   mediation, 
-  onClick 
+  onClick,
+  isHistory = false
 }: { 
   mediation: Mediation
-  onClick: () => void 
+  onClick: () => void
+  isHistory?: boolean
 }) {
   return (
     <div
       onClick={onClick}
-      className="p-4 border border-border rounded-lg hover:border-accent/50 hover:bg-accent/5 cursor-pointer transition-colors"
+      className={isHistory 
+        ? "p-4 border border-border rounded-lg bg-background-secondary/30 cursor-pointer transition-colors"
+        : "p-4 border border-border rounded-lg hover:border-accent/50 hover:bg-accent/5 cursor-pointer transition-colors"
+      }
     >
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div className="flex items-start gap-3">
@@ -237,7 +300,7 @@ function MediationListItem({
             {statusLabels[mediation.status]}
           </Badge>
           
-          {mediation.is_stale && (
+          {mediation.is_stale && !isHistory && (
             <Badge variant="outline" className="border-error text-error">
               <AlertTriangle className="h-3 w-3 mr-1" />
               Inactiva

@@ -1,7 +1,8 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { toast } from 'sonner'
+import { createLocalDateTime, getCurrentLocalDate } from '@/lib/utils/date-utils'
 
 export interface TodayLog {
   id: string
@@ -22,7 +23,7 @@ export interface ManualUpdateData {
 interface UseTodayLogReturn {
   todayLog: TodayLog | null
   isLoading: boolean
-  actionLoading: 'clock_in' | 'clock_out' | 'update' | 'create' | null
+  actionLoading: 'clock_in' | 'clock_out' | 'update' | 'create' | 'delete' | null
   isUpdating: boolean
   canEdit: boolean
   fetchTodayLog: () => Promise<void>
@@ -30,13 +31,15 @@ interface UseTodayLogReturn {
   handleClockOut: () => Promise<void>
   updateManual: (data: ManualUpdateData) => Promise<boolean>
   createPartialRecord: (data: { clockIn?: string; clockOut?: string }) => Promise<boolean>
+  deleteTodayLog: () => Promise<boolean>
   refresh: () => Promise<void>
 }
 
 export function useTodayLog(): UseTodayLogReturn {
   const [todayLog, setTodayLog] = useState<TodayLog | null>(null)
   const [isLoading, setIsLoading] = useState(true)
-  const [actionLoading, setActionLoading] = useState<'clock_in' | 'clock_out' | 'update' | 'create' | null>(null)
+  const [actionLoading, setActionLoading] = useState<'clock_in' | 'clock_out' | 'update' | 'create' | 'delete' | null>(null)
+  const hasFetchedRef = useRef(false)
 
   const calculateTotalHours = (clockIn: string | null, clockOut: string | null): number | null => {
     if (!clockIn || !clockOut) return null
@@ -72,9 +75,18 @@ export function useTodayLog(): UseTodayLogReturn {
   const handleClockIn = async () => {
     setActionLoading('clock_in')
     try {
-      const res = await fetch('/api/time-logs/clock-in', { method: 'POST' })
+      const now = new Date()
+      const localDate = now.toLocaleDateString('sv-SE')
+      const hours = String(now.getHours()).padStart(2, '0')
+      const minutes = String(now.getMinutes()).padStart(2, '0')
+      const seconds = String(now.getSeconds()).padStart(2, '0')
+      const localDateTime = `${localDate}T${hours}:${minutes}:${seconds}`
+      const res = await fetch('/api/time-logs/clock-in', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ clock_in: localDateTime }),
+      })
       if (res.ok) {
-        const now = new Date()
         toast.success('¡Entrada registrada!', {
           description: `Hora: ${now.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}`,
         })
@@ -94,7 +106,17 @@ export function useTodayLog(): UseTodayLogReturn {
   const handleClockOut = async () => {
     setActionLoading('clock_out')
     try {
-      const res = await fetch('/api/time-logs/clock-out', { method: 'POST' })
+      const now = new Date()
+      const localDate = now.toLocaleDateString('sv-SE')
+      const hours = String(now.getHours()).padStart(2, '0')
+      const minutes = String(now.getMinutes()).padStart(2, '0')
+      const seconds = String(now.getSeconds()).padStart(2, '0')
+      const localDateTime = `${localDate}T${hours}:${minutes}:${seconds}`
+      const res = await fetch('/api/time-logs/clock-out', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ clock_out: localDateTime }),
+      })
       if (res.ok) {
         const now = new Date()
         toast.success('¡Salida registrada!', {
@@ -121,18 +143,24 @@ export function useTodayLog(): UseTodayLogReturn {
 
     setActionLoading('create')
     try {
-      const today = new Date().toISOString().split('T')[0]
-      const clockInISO = new Date(data.clockIn).toISOString()
+      // data.clockIn can be either HH:MM (from input) or already converted
+      if (!data.clockIn) {
+        toast.error('La hora de entrada es requerida')
+        return false
+      }
       
+      const today = getCurrentLocalDate()
+      
+      // Pass the time as-is, backend will handle conversion
       const body: Record<string, unknown> = {
         date: today,
-        clock_in: clockInISO,
+        clock_in: data.clockIn,
         is_manual: true,
         is_official: false,
       }
 
       if (data.clockOut) {
-        body.clock_out = new Date(data.clockOut).toISOString()
+        body.clock_out = data.clockOut
       }
 
       const res = await fetch('/api/time-logs', {
@@ -200,6 +228,36 @@ export function useTodayLog(): UseTodayLogReturn {
     }
   }, [todayLog?.id, fetchTodayLog])
 
+  const deleteTodayLog = useCallback(async (): Promise<boolean> => {
+    if (!todayLog?.id) {
+      toast.error('No hay registro para eliminar')
+      return false
+    }
+
+    setActionLoading('delete')
+    try {
+      const res = await fetch(`/api/time-logs?id=${todayLog.id}`, {
+        method: 'DELETE',
+      })
+
+      if (res.ok) {
+        toast.success('Registro eliminado')
+        setTodayLog(null)
+        return true
+      } else {
+        const errorData = await res.json().catch(() => ({}))
+        toast.error(errorData.error || 'Error al eliminar el registro')
+        return false
+      }
+    } catch (error) {
+      console.error('Error deleting time log:', error)
+      toast.error('Error al eliminar el registro')
+      return false
+    } finally {
+      setActionLoading(null)
+    }
+  }, [todayLog?.id])
+
   const refresh = async () => {
     await fetchTodayLog()
   }
@@ -207,7 +265,10 @@ export function useTodayLog(): UseTodayLogReturn {
   const canEdit = true
 
   useEffect(() => {
-    fetchTodayLog()
+    if (!hasFetchedRef.current) {
+      hasFetchedRef.current = true
+      fetchTodayLog()
+    }
   }, [fetchTodayLog])
 
   return {
@@ -221,6 +282,7 @@ export function useTodayLog(): UseTodayLogReturn {
     handleClockOut,
     updateManual,
     createPartialRecord,
+    deleteTodayLog,
     refresh,
   }
 }

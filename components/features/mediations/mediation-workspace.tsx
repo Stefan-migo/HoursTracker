@@ -13,10 +13,12 @@ import {
   Save,
   ArrowLeft,
   Shield,
-  User
+  User,
+  AlertTriangle
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { formatDate } from '@/lib/utils'
+import { formatToLocalTime, formatToLocalDateTime, createLocalDateTime } from '@/lib/utils/date-utils'
 import { StaleNotification } from './stale-notification'
 import { ComparisonView } from './comparison-view'
 import { useMediationDetail } from './hooks/useMediations'
@@ -103,6 +105,17 @@ export function MediationWorkspace({ mediationId, onClose, onUpdate }: Mediation
     }
   }
 
+  const handleReject = async () => {
+    setIsSubmitting(true)
+    try {
+      await updateMediation('reject')
+      toast.success('Propuesta rechazada. Continúa la conversación en el chat.')
+      onUpdate?.()
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
+
   const handleClose = async () => {
     if (!confirm('¿Estás seguro de cerrar esta mediación?')) return
     
@@ -115,6 +128,11 @@ export function MediationWorkspace({ mediationId, onClose, onUpdate }: Mediation
     } finally {
       setIsSubmitting(false)
     }
+  }
+
+  // Helper to extract time from ISO timestamp (HH:MM) in local time
+  const extractTime = (timestamp: string | null): string => {
+    return formatToLocalTime(timestamp)
   }
 
   const handleUpdateRecord = async (timeLogId: string, isAdmin: boolean) => {
@@ -133,9 +151,10 @@ export function MediationWorkspace({ mediationId, onClose, onUpdate }: Mediation
         clock_out: form.clock_out || null,
         total_hours: form.total_hours ? parseFloat(form.total_hours) : null,
         reason: 'Ajuste en mediación',
+        clock_in_display: form.clock_in || null,
+        clock_out_display: form.clock_out || null,
       })
       
-      // Reset form
       if (isAdmin) {
         setAdminForm({ clock_in: '', clock_out: '', total_hours: '' })
       } else {
@@ -155,7 +174,7 @@ export function MediationWorkspace({ mediationId, onClose, onUpdate }: Mediation
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center gap-4">
+      <div className="flex items-center gap-4 pr-12">
         <Button variant="ghost" size="sm" onClick={onClose}>
           <ArrowLeft className="h-4 w-4 mr-2" />
           Volver
@@ -184,6 +203,23 @@ export function MediationWorkspace({ mediationId, onClose, onUpdate }: Mediation
         />
       )}
 
+      {/* Process Disabled Banner */}
+      {!mediation.permissions.mediation_process_enabled && mediation.status !== 'resolved' && mediation.status !== 'closed_no_changes' && (
+        <Card className="bg-warning/10 border-warning/30">
+          <CardContent className="flex items-center gap-3 py-4">
+            <div className="h-10 w-10 rounded-full bg-warning/20 flex items-center justify-center flex-shrink-0">
+              <Shield className="h-5 w-5 text-warning" />
+            </div>
+            <div className="flex-1">
+              <p className="font-medium text-warning">Proceso de mediación temporalmente deshabilitado</p>
+              <p className="text-sm text-foreground-secondary">
+                No es posible proponer soluciones o aceptar propuestas en este momento. Sin embargo, puedes revisar las discrepancias en los registros.
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Comparison View */}
       <ComparisonView
         adminRecord={mediation.admin_record ? {
@@ -203,6 +239,212 @@ export function MediationWorkspace({ mediationId, onClose, onUpdate }: Mediation
         proposedValues={mediation.proposed}
         showDifferencesOnly={false}
       />
+
+      {/* Initial Conflict (Snapshots) */}
+      {mediation.permissions.has_proposal && mediation.status !== 'resolved' && mediation.status !== 'closed_no_changes' && (
+        <Card className="bg-background-secondary/50 border-border">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm font-medium flex items-center gap-2">
+              <AlertTriangle className="h-4 w-4 text-warning" />
+              Conflicto Inicial
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="p-3 rounded-lg bg-background">
+                <p className="text-xs text-foreground-secondary mb-2">Registro Oficial</p>
+                <div className="flex flex-wrap gap-3 text-sm">
+                  <div>
+                    <span className="text-foreground-secondary">Entrada: </span>
+                    <span className="font-medium">{extractTime(mediation.snapshots.admin.clock_in)}</span>
+                  </div>
+                  <div>
+                    <span className="text-foreground-secondary">Salida: </span>
+                    <span className="font-medium">{extractTime(mediation.snapshots.admin.clock_out)}</span>
+                  </div>
+                  <div>
+                    <span className="text-foreground-secondary">Total: </span>
+                    <span className="font-medium">{mediation.snapshots.admin.total_hours?.toFixed(1) || '--'}h</span>
+                  </div>
+                </div>
+              </div>
+              <div className="p-3 rounded-lg bg-background">
+                <p className="text-xs text-foreground-secondary mb-2">Registro del Trabajador</p>
+                <div className="flex flex-wrap gap-3 text-sm">
+                  <div>
+                    <span className="text-foreground-secondary">Entrada: </span>
+                    <span className="font-medium">{extractTime(mediation.snapshots.employee.clock_in)}</span>
+                  </div>
+                  <div>
+                    <span className="text-foreground-secondary">Salida: </span>
+                    <span className="font-medium">{extractTime(mediation.snapshots.employee.clock_out)}</span>
+                  </div>
+                  <div>
+                    <span className="text-foreground-secondary">Total: </span>
+                    <span className="font-medium">{mediation.snapshots.employee.total_hours?.toFixed(1) || '--'}h</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Proposal Card */}
+      {mediation.permissions.has_proposal && mediation.status !== 'resolved' && mediation.status !== 'closed_no_changes' && mediation.proposed && (
+        <Card className={mediation.permissions.i_proposed ? 'bg-accent/5 border-accent/30' : 'bg-success/5 border-success/30'}>
+          <CardContent className="py-4">
+            <div className="flex items-start gap-3">
+              <div className={`h-10 w-10 rounded-full flex items-center justify-center flex-shrink-0 ${mediation.permissions.i_proposed ? 'bg-accent/20' : 'bg-success/20'}`}>
+                <CheckCircle2 className={`h-5 w-5 ${mediation.permissions.i_proposed ? 'text-accent' : 'text-success'}`} />
+              </div>
+              <div className="flex-1">
+                {mediation.permissions.i_proposed ? (
+                  <>
+                    <p className="font-medium text-foreground">Esperando confirmación</p>
+                    <p className="text-sm text-foreground-secondary">
+                      La otra parte debe aceptar o rechazar tu propuesta
+                    </p>
+                    <div className="mt-3 flex flex-wrap gap-3 text-sm">
+                      <div>
+                        <span className="text-foreground-secondary">Entrada: </span>
+                        <span className="font-medium text-success">{extractTime(mediation.proposed.clock_in)}</span>
+                      </div>
+                      <div>
+                        <span className="text-foreground-secondary">Salida: </span>
+                        <span className="font-medium text-error">{extractTime(mediation.proposed.clock_out)}</span>
+                      </div>
+                      <div>
+                        <span className="text-foreground-secondary">Total: </span>
+                        <span className="font-medium">{mediation.proposed.total_hours?.toFixed(1) || '--'}h</span>
+                      </div>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <p className="font-medium text-foreground">Tienes una propuesta pendiente</p>
+                    <p className="text-sm text-foreground-secondary">
+                      La otra parte propuso estos horarios como solución
+                    </p>
+                    <div className="mt-3 flex flex-wrap gap-3 text-sm">
+                      <div>
+                        <span className="text-foreground-secondary">Entrada: </span>
+                        <span className="font-medium text-success">{extractTime(mediation.proposed.clock_in)}</span>
+                      </div>
+                      <div>
+                        <span className="text-foreground-secondary">Salida: </span>
+                        <span className="font-medium text-error">{extractTime(mediation.proposed.clock_out)}</span>
+                      </div>
+                      <div>
+                        <span className="text-foreground-secondary">Total: </span>
+                        <span className="font-medium">{mediation.proposed.total_hours?.toFixed(1) || '--'}h</span>
+                      </div>
+                    </div>
+                  </>
+                )}
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Resolved Banner */}
+      {mediation.status === 'resolved' && (
+        <Card className="bg-success/10 border-success/30">
+          <CardContent className="flex items-center gap-3 py-4">
+            <div className="h-10 w-10 rounded-full bg-success/20 flex items-center justify-center">
+              <CheckCircle2 className="h-5 w-5 text-success" />
+            </div>
+            <div className="flex-1">
+              <p className="font-medium text-success">Mediación resuelta</p>
+              <p className="text-sm text-foreground-secondary">
+                {mediation.resolution_notes || 'Se aplicaron los cambios acordados'}
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Show conflict and proposal for resolved/closed mediations too */}
+      {(mediation.status === 'resolved' || mediation.status === 'closed_no_changes') && (
+        <>
+          {/* Initial Conflict for Resolved */}
+          <Card className="bg-background-secondary/50 border-border">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm font-medium flex items-center gap-2">
+                <AlertTriangle className="h-4 w-4 text-warning" />
+                Conflicto Inicial
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="p-3 rounded-lg bg-background">
+                  <p className="text-xs text-foreground-secondary mb-2">Registro Oficial</p>
+                  <div className="flex flex-wrap gap-3 text-sm">
+                    <div>
+                      <span className="text-foreground-secondary">Entrada: </span>
+                      <span className="font-medium">{extractTime(mediation.snapshots.admin.clock_in)}</span>
+                    </div>
+                    <div>
+                      <span className="text-foreground-secondary">Salida: </span>
+                      <span className="font-medium">{extractTime(mediation.snapshots.admin.clock_out)}</span>
+                    </div>
+                    <div>
+                      <span className="text-foreground-secondary">Total: </span>
+                      <span className="font-medium">{mediation.snapshots.admin.total_hours?.toFixed(1) || '--'}h</span>
+                    </div>
+                  </div>
+                </div>
+                <div className="p-3 rounded-lg bg-background">
+                  <p className="text-xs text-foreground-secondary mb-2">Registro del Trabajador</p>
+                  <div className="flex flex-wrap gap-3 text-sm">
+                    <div>
+                      <span className="text-foreground-secondary">Entrada: </span>
+                      <span className="font-medium">{extractTime(mediation.snapshots.employee.clock_in)}</span>
+                    </div>
+                    <div>
+                      <span className="text-foreground-secondary">Salida: </span>
+                      <span className="font-medium">{extractTime(mediation.snapshots.employee.clock_out)}</span>
+                    </div>
+                    <div>
+                      <span className="text-foreground-secondary">Total: </span>
+                      <span className="font-medium">{mediation.snapshots.employee.total_hours?.toFixed(1) || '--'}h</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Solution for Resolved */}
+          {mediation.proposed && (
+            <Card className="bg-success/5 border-success/30">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-sm font-medium flex items-center gap-2">
+                  <CheckCircle2 className="h-4 w-4 text-success" />
+                  Solución Acordada
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="flex flex-wrap gap-3 text-sm">
+                  <div>
+                    <span className="text-foreground-secondary">Entrada: </span>
+                    <span className="font-medium text-success">{extractTime(mediation.proposed.clock_in)}</span>
+                  </div>
+                  <div>
+                    <span className="text-foreground-secondary">Salida: </span>
+                    <span className="font-medium text-error">{extractTime(mediation.proposed.clock_out)}</span>
+                  </div>
+                  <div>
+                    <span className="text-foreground-secondary">Total: </span>
+                    <span className="font-medium">{mediation.proposed.total_hours?.toFixed(1) || '--'}h</span>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+        </>
+      )}
 
       {/* Edit Forms */}
       {mediation.status !== 'resolved' && mediation.status !== 'closed_no_changes' && (
@@ -405,29 +647,43 @@ export function MediationWorkspace({ mediationId, onClose, onUpdate }: Mediation
 
       {/* Actions */}
       <div className="flex flex-col sm:flex-row gap-3">
-        {mediation.permissions.can_accept && mediation.proposed && (
-          <Button
-            className="flex-1 bg-success hover:bg-success/90"
-            onClick={handleAccept}
-            disabled={isSubmitting}
-          >
-            <CheckCircle2 className="h-4 w-4 mr-2" />
-            Aceptar Propuesta
-          </Button>
-        )}
-        
-        {mediation.permissions.can_close && (
-          <Button
-            variant="outline"
-            className="flex-1"
-            onClick={handleClose}
-            disabled={isSubmitting}
-          >
-            <X className="h-4 w-4 mr-2" />
-            Cerrar Mediación
-          </Button>
+        {mediation.permissions.can_accept_proposal && mediation.proposed && (
+          <>
+            <Button
+              variant="outline"
+              className="flex-1"
+              onClick={handleReject}
+              disabled={isSubmitting}
+            >
+              <X className="h-4 w-4 mr-2" />
+              Rechazar y conversar
+            </Button>
+            <Button
+              className="flex-1 bg-success hover:bg-success/90"
+              onClick={handleAccept}
+              disabled={isSubmitting}
+            >
+              <CheckCircle2 className="h-4 w-4 mr-2" />
+              Aceptar Propuesta
+            </Button>
+          </>
         )}
       </div>
+
+      {/* Chat encouragement when rejected */}
+      {mediation.status === 'in_discussion' && mediation.notes.length > 0 && (
+        mediation.notes[mediation.notes.length - 1].type === 'system' &&
+        mediation.notes[mediation.notes.length - 1].content.includes('rechazó') && (
+          <Card className="bg-warning/10 border-warning/30">
+            <CardContent className="flex items-center gap-3 py-3">
+              <MessageCircle className="h-5 w-5 text-warning flex-shrink-0" />
+              <p className="text-sm text-foreground">
+                <strong>Usa el chat para discutir</strong> y encontrar una solución que funcione para ambos.
+              </p>
+            </CardContent>
+          </Card>
+        )
+      )}
     </div>
   )
 }

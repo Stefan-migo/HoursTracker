@@ -68,7 +68,7 @@ export async function POST(request: Request) {
         return NextResponse.json({ error: 'Error al crear trabajador: sin usuario' }, { status: 500 })
       }
 
-      const { data: newProfile, error: profileError } = await supabase
+      const { data: newProfile, error: profileError } = await supabaseAdmin
         .from('profiles')
         .upsert({
           id: newUser.user.id,
@@ -116,7 +116,7 @@ export async function POST(request: Request) {
     }
 
     if (result.success && result.userId) {
-      await supabase
+      await supabaseAdmin
         .from('profiles')
         .upsert({
           id: result.userId,
@@ -137,7 +137,7 @@ export async function POST(request: Request) {
     }
 
     if (result.inviteUrl) {
-      await supabase
+      await supabaseAdmin
         .from('profiles')
         .upsert(profileData)
 

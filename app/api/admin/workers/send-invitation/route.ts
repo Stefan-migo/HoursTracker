@@ -45,7 +45,11 @@ export async function POST(request: Request) {
       }, { status: 400 })
     }
 
-    const { data: authUser } = await supabaseAdmin.auth.admin.getUserById(employeeId)
+    const { data: authUser, error: getUserError } = await supabaseAdmin.auth.admin.getUserById(employeeId)
+    
+    if (getUserError) {
+      console.error('Error getting auth user:', getUserError)
+    }
     
     if (authUser?.user) {
       // Check if it's a placeholder user (no real email)
@@ -59,16 +63,51 @@ export async function POST(request: Request) {
       }
       
       // It's a placeholder user - update with real email and send invite
+      console.log('Updating placeholder user email to:', employee.email)
       const { error: updateError } = await supabaseAdmin.auth.admin.updateUserById(
         employeeId,
         { email: employee.email }
       )
       
       if (updateError) {
+        console.error('Error updating user email:', updateError)
         return NextResponse.json({ 
-          error: 'No se pudo actualizar el email del usuario',
+          error: `No se pudo actualizar el email: ${updateError.message}`,
         }, { status: 500 })
       }
+    } else {
+      // No auth user exists - need to create one first
+      console.log('No auth user found, creating one for:', employee.email)
+      const { data: newUser, error: createError } = await supabaseAdmin.auth.admin.createUser({
+        email: employee.email,
+        email_confirm: false,
+        user_metadata: { full_name: employee.full_name },
+      })
+      
+      if (createError) {
+        console.error('Error creating auth user:', createError)
+        return NextResponse.json({ 
+          error: `No se pudo crear el usuario: ${createError.message}`,
+        }, { status: 500 })
+      }
+      
+      if (!newUser.user) {
+        return NextResponse.json({ 
+          error: 'No se pudo crear el usuario',
+        }, { status: 500 })
+      }
+      
+      // Create profile manually
+      await supabaseAdmin
+        .from('profiles')
+        .upsert({
+          id: newUser.user.id,
+          email: employee.email,
+          full_name: employee.full_name,
+          role: 'employee',
+          is_active: true,
+          invitation_status: 'invited',
+        })
     }
 
     const result = await sendInviteEmail({

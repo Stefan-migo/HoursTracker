@@ -62,21 +62,45 @@ export async function POST(request: Request) {
         }, { status: 400 })
       }
       
-      // It's a placeholder user - update with real email and send invite
-      console.log('Updating placeholder user email to:', employee.email)
-      const { error: updateError } = await supabaseAdmin.auth.admin.updateUserById(
-        employeeId,
-        { email: employee.email }
-      )
+      // It's a placeholder user - delete and recreate with real email
+      console.log('Deleting placeholder user and recreating with:', employee.email)
       
-      if (updateError) {
-        console.error('Error updating user email:', updateError)
+      // Delete placeholder user
+      const { error: deleteError } = await supabaseAdmin.auth.admin.deleteUser(employeeId)
+      if (deleteError) {
+        console.error('Error deleting placeholder user:', deleteError)
         return NextResponse.json({ 
-          error: `No se pudo actualizar el email: ${updateError.message}`,
+          error: `No se pudo actualizar el usuario: ${deleteError.message}`,
         }, { status: 500 })
       }
+      
+      // Create new user with real email
+      const { data: newUser, error: createError } = await supabaseAdmin.auth.admin.createUser({
+        email: employee.email,
+        email_confirm: false,
+        user_metadata: { full_name: employee.full_name },
+      })
+      
+      if (createError) {
+        console.error('Error creating new user:', createError)
+        return NextResponse.json({ 
+          error: `No se pudo crear el usuario: ${createError.message}`,
+        }, { status: 500 })
+      }
+      
+      if (!newUser.user) {
+        return NextResponse.json({ 
+          error: 'No se pudo crear el usuario',
+        }, { status: 500 })
+      }
+      
+      // Update profile with new user ID
+      await supabaseAdmin
+        .from('profiles')
+        .update({ id: newUser.user.id })
+        .eq('id', employeeId)
     } else {
-      // No auth user exists - need to create one first
+      // No auth user exists - create one
       console.log('No auth user found, creating one for:', employee.email)
       const { data: newUser, error: createError } = await supabaseAdmin.auth.admin.createUser({
         email: employee.email,
@@ -97,17 +121,11 @@ export async function POST(request: Request) {
         }, { status: 500 })
       }
       
-      // Create profile manually
+      // Update profile with new user ID
       await supabaseAdmin
         .from('profiles')
-        .upsert({
-          id: newUser.user.id,
-          email: employee.email,
-          full_name: employee.full_name,
-          role: 'employee',
-          is_active: true,
-          invitation_status: 'invited',
-        })
+        .update({ id: newUser.user.id })
+        .eq('id', employeeId)
     }
 
     const result = await sendInviteEmail({

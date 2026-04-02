@@ -31,10 +31,16 @@ export async function sendInviteEmail({
       }
     )
 
+    console.log('Supabase invite response:', { data, error })
+
     if (error) {
       console.error('Supabase invite error:', error.message)
       if (error.message.includes('already')) {
         return { success: false, method: 'supabase', error: 'El usuario ya existe' }
+      }
+      if (error.message.includes('Database error')) {
+        console.log('Supabase invite failed with database error, trying Resend fallback')
+        return sendInviteViaResend(email, fullName, appUrl)
       }
       return { success: false, method: 'supabase', error: error.message }
     }

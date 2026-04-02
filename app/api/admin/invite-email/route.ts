@@ -107,12 +107,14 @@ export async function POST(request: Request) {
       fullName: full_name,
     })
 
+    console.log('Invite result:', JSON.stringify(result))
+
     const profileData = {
       full_name: full_name.trim(),
       email: email.toLowerCase(),
       role: 'employee' as const,
       is_active: true,
-      invitation_status: result.success ? 'active' as const : 'pending' as const,
+      invitation_status: result.success ? 'active' as const : 'invited' as const,
     }
 
     if (result.success && result.userId) {
@@ -137,10 +139,6 @@ export async function POST(request: Request) {
     }
 
     if (result.inviteUrl) {
-      await supabaseAdmin
-        .from('profiles')
-        .upsert(profileData)
-
       return NextResponse.json({
         success: true,
         user: {

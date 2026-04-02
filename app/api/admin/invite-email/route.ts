@@ -50,31 +50,55 @@ export async function POST(request: Request) {
   }
 
   if (!sendInvitation) {
-    const { data: newProfile, error: profileError } = await supabase
-      .from('profiles')
-      .upsert({
-        full_name: full_name.trim(),
-        email: null,
-        role: 'employee' as const,
-        is_active: true,
-        invitation_status: 'none' as const,
+    try {
+      const placeholderEmail = `pending-${Date.now()}@placeholder.local`
+      
+      const { data: newUser, error: userError } = await supabaseAdmin.auth.admin.createUser({
+        email: placeholderEmail,
+        email_confirm: false,
+        user_metadata: { full_name: full_name.trim() },
       })
-      .select()
-      .single()
 
-    if (profileError) {
-      console.error('Error creating profile:', profileError)
-      return NextResponse.json({ error: 'Error al crear trabajador' }, { status: 500 })
+      if (userError) {
+        console.error('Error creating placeholder user:', userError)
+        return NextResponse.json({ error: `Error al crear trabajador: ${userError.message}` }, { status: 500 })
+      }
+
+      if (!newUser.user) {
+        return NextResponse.json({ error: 'Error al crear trabajador: sin usuario' }, { status: 500 })
+      }
+
+      const { data: newProfile, error: profileError } = await supabase
+        .from('profiles')
+        .upsert({
+          id: newUser.user.id,
+          full_name: full_name.trim(),
+          email: null,
+          role: 'employee',
+          is_active: true,
+          invitation_status: 'none',
+        })
+        .select()
+        .single()
+
+      if (profileError) {
+        console.error('Error creating profile:', profileError)
+        await supabaseAdmin.auth.admin.deleteUser(newUser.user.id)
+        return NextResponse.json({ error: `Error al crear trabajador: ${profileError.message}` }, { status: 500 })
+      }
+
+      return NextResponse.json({
+        success: true,
+        user: {
+          id: newProfile.id,
+          full_name: full_name.trim(),
+        },
+        message: 'Trabajador creado sin invitación',
+      })
+    } catch (err) {
+      console.error('Unexpected error creating profile:', err)
+      return NextResponse.json({ error: `Error: ${err instanceof Error ? err.message : 'Error desconocido'}` }, { status: 500 })
     }
-
-    return NextResponse.json({
-      success: true,
-      user: {
-        id: newProfile.id,
-        full_name: full_name.trim(),
-      },
-      message: 'Trabajador creado sin invitación',
-    })
   }
 
   try {

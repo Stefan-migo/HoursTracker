@@ -18,28 +18,38 @@ export async function POST(request: Request) {
     let userId: string | null = null
     let userEmail: string | null = null
 
-    // Try to get current session user first
+    // First, try to get session user (if authenticated)
     const supabase = await createClient()
-    const { data: { user: sessionUser }, error: getUserError } = await supabase.auth.getUser()
+    const { data: { user: sessionUser } } = await supabase.auth.getUser()
 
     if (sessionUser) {
       userId = sessionUser.id
       userEmail = sessionUser.email || null
-    } else if (invite_token) {
-      // Decode invite token to get email
+    }
+
+    // If no session, try to decode invite token to find user
+    if (!userId && invite_token) {
       try {
         const decoded = Buffer.from(invite_token, 'base64url').toString('utf-8')
-        const [email, timestamp] = decoded.split(':')
+        const [emailPart] = decoded.split(':')
         
-        if (email && timestamp) {
-          // Find user by email
-          const { data: userData, error: findError } = await supabaseAdmin.auth.admin.listUsers()
+        if (emailPart) {
+          console.log('Looking for user with email:', emailPart)
           
-          if (!findError && userData.users) {
-            const foundUser = userData.users.find(u => u.email?.toLowerCase() === email.toLowerCase())
+          // List users and find by email
+          const { data: usersData, error: listError } = await supabaseAdmin.auth.admin.listUsers()
+          
+          if (!listError && usersData?.users) {
+            const foundUser = usersData.users.find(u => 
+              u.email?.toLowerCase() === emailPart.toLowerCase()
+            )
+            
             if (foundUser) {
+              console.log('Found user:', foundUser.id, foundUser.email)
               userId = foundUser.id
               userEmail = foundUser.email || null
+            } else {
+              console.log('User not found for email:', emailPart)
             }
           }
         }
@@ -48,9 +58,26 @@ export async function POST(request: Request) {
       }
     }
 
-    if (!userId) {
-      return NextResponse.json({ error: 'No se pudo verificar el usuario. El enlace puede haber expirado.' }, { status: 401 })
+    // If still no user, try body email
+    if (!userId && bodyEmail) {
+      const { data: usersData } = await supabaseAdmin.auth.admin.listUsers()
+      const foundUser = usersData?.users.find(u => 
+        u.email?.toLowerCase() === bodyEmail.toLowerCase()
+      )
+      if (foundUser) {
+        userId = foundUser.id
+        userEmail = foundUser.email || null
+      }
     }
+
+    if (!userId) {
+      console.error('Could not find user for setup-password', { invite_token, bodyEmail })
+      return NextResponse.json({ 
+        error: 'No se pudo verificar el usuario. El enlace puede haber expirado o el usuario no existe.' 
+      }, { status: 401 })
+    }
+
+    console.log('Setting password for user:', userId, userEmail)
 
     const { error: updateError } = await supabaseAdmin.auth.admin.updateUserById(
       userId,
@@ -62,6 +89,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: updateError.message }, { status: 500 })
     }
 
+    // Update profile invitation status
     await supabase
       .from('profiles')
       .update({ invitation_status: 'active' })

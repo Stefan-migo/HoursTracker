@@ -83,6 +83,23 @@ async function createUserAndSendResend(
       return { success: false, method: 'resend', error: 'No se pudo crear el usuario' }
     }
 
+    // Create profile manually to avoid trigger dependency
+    const { error: profileError } = await supabaseAdmin
+      .from('profiles')
+      .upsert({
+        id: newUser.user.id,
+        email: email.toLowerCase(),
+        full_name: fullName,
+        role: 'employee',
+        is_active: true,
+        invitation_status: 'invited',
+      })
+
+    if (profileError) {
+      console.error('Error creating profile:', profileError)
+      // Continue anyway, profile might already exist
+    }
+
     // Generate custom invite token
     const inviteToken = generateInviteToken(email)
     const inviteUrl = `${appUrl}/login?invite=${inviteToken}`

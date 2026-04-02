@@ -84,11 +84,12 @@ export default function AdminDashboardClient() {
 
       if (dashRes.ok) {
         const dashData = await dashRes.json()
+        console.log('[Dashboard] API Response:', JSON.stringify(dashData, null, 2))
         setEmployees(dashData.employees)
         setStats(dashData.stats)
       } else {
         const err = await dashRes.json()
-        console.error('Dashboard API error:', err)
+        console.error('[Dashboard] API Error:', err)
       }
 
       if (groupsRes.ok) {
@@ -463,7 +464,7 @@ export default function AdminDashboardClient() {
           </div>
         </div>
 
-        <div className="grid grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
           <Card className="transition-all hover:shadow-md">
             <CardHeader className="flex flex-row items-center justify-between pb-2">
               <CardTitle className="text-sm font-medium text-foreground-secondary">Con registro</CardTitle>
@@ -486,7 +487,7 @@ export default function AdminDashboardClient() {
             </CardContent>
           </Card>
 
-          <Card className="transition-all hover:shadow-md">
+          <Card className="transition-all hover:shadow-md sm:col-span-1 col-span-1">
             <CardHeader className="flex flex-row items-center justify-between pb-2">
               <CardTitle className="text-sm font-medium text-foreground-secondary">Total Horas</CardTitle>
               <Clock3 className="h-4 w-4 text-foreground-secondary" />
@@ -500,78 +501,80 @@ export default function AdminDashboardClient() {
 
         <Card>
           {selectedIds.size > 0 && (
-            <div className="p-4 bg-accent-muted/50 border-b border-border-subtle">
+            <div className="p-3 sm:p-4 bg-accent-muted/50 border-b border-border-subtle">
               <div className="flex flex-wrap gap-2 items-center">
                 <span className="text-sm text-accent font-medium">
-                  {selectedIds.size} seleccionado(s):
+                  {selectedIds.size} sel.:
                 </span>
                 <Button
                   size="sm"
                   variant="outline"
-                  className="text-success border-success/30 hover:bg-success-muted"
+                  className="text-success border-success/30 hover:bg-success-muted h-8"
                   onClick={() => openBulkModal('clock_in')}
                 >
                   <LogIn className="h-4 w-4" />
-                  <span className="hidden sm:inline ml-2">Entrada</span>
+                  <span className="hidden sm:inline ml-1">Entrada</span>
                 </Button>
                 <Button
                   size="sm"
                   variant="outline"
-                  className="text-error border-error/30 hover:bg-error-muted"
+                  className="text-error border-error/30 hover:bg-error-muted h-8"
                   onClick={() => openBulkModal('clock_out')}
                 >
                   <LogOut className="h-4 w-4" />
-                  <span className="hidden sm:inline ml-2">Salida</span>
+                  <span className="hidden sm:inline ml-1">Salida</span>
                 </Button>
                 <Button
                   size="sm"
                   variant="outline"
-                  className="text-accent border-accent/30 hover:bg-accent-muted"
+                  className="text-accent border-accent/30 hover:bg-accent-muted h-8"
                   onClick={() => openBulkModal('clock_full')}
                 >
                   <Clock3 className="h-4 w-4" />
-                  <span className="hidden sm:inline ml-2">Completo</span>
+                  <span className="hidden sm:inline ml-1">Completo</span>
                 </Button>
               </div>
             </div>
           )}
           <CardHeader className="border-b border-border-subtle py-4">
-            <div className="flex flex-col lg:flex-row gap-4 items-start lg:items-center justify-between">
+            <div className="flex flex-col gap-4">
               <CardTitle className="text-base font-semibold">Trabajadores</CardTitle>
-              <div className="flex flex-wrap gap-2 items-center w-full lg:w-auto">
-                <div className="relative flex-1 lg:flex-initial">
+              <div className="flex flex-col gap-3">
+                <div className="relative">
                   <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-foreground-secondary pointer-events-none" />
                   <Input
                     placeholder="Buscar..."
                     value={search}
                     onChange={(e) => setSearch(e.target.value)}
-                    className="pl-9 w-full lg:w-48"
+                    className="pl-9 w-full"
                   />
                 </div>
-                <select
-                  value={filterGroup}
-                  onChange={(e) => setFilterGroup(e.target.value)}
-                  className="h-10 px-3 rounded-md border border-border bg-background text-sm"
-                >
-                  <option value="all">Todos los grupos</option>
-                  {workGroups.map(group => (
-                    <option key={group.id} value={group.id}>{group.name}</option>
-                  ))}
-                </select>
-                <div className="flex rounded-lg border border-border overflow-hidden">
-                  {(['all', 'active', 'inactive'] as const).map((f) => (
-                    <button
-                      key={f}
-                      onClick={() => setFilter(f)}
-                      className={`px-3 py-1.5 text-xs font-medium transition-colors ${
-                        filter === f
-                          ? 'bg-accent text-white'
-                          : 'bg-background text-foreground-secondary hover:bg-background-secondary'
-                      }`}
-                    >
-                      {f === 'active' ? 'Con registro' : f === 'inactive' ? 'Sin registro' : 'Todos'}
-                    </button>
-                  ))}
+                <div className="flex flex-wrap gap-2 items-center">
+                  <select
+                    value={filterGroup}
+                    onChange={(e) => setFilterGroup(e.target.value)}
+                    className="h-10 px-3 rounded-md border border-border bg-background text-sm flex-1 min-w-[140px]"
+                  >
+                    <option value="all">Todos los grupos</option>
+                    {workGroups.map(group => (
+                      <option key={group.id} value={group.id}>{group.name}</option>
+                    ))}
+                  </select>
+                  <div className="flex rounded-lg border border-border overflow-hidden w-full sm:w-auto">
+                    {(['all', 'active', 'inactive'] as const).map((f) => (
+                      <button
+                        key={f}
+                        onClick={() => setFilter(f)}
+                        className={`flex-1 px-3 py-2 text-xs font-medium transition-colors ${
+                          filter === f
+                            ? 'bg-accent text-white'
+                            : 'bg-background text-foreground-secondary hover:bg-background-secondary'
+                        }`}
+                      >
+                        {f === 'active' ? 'Con reg.' : f === 'inactive' ? 'Sin reg.' : 'Todos'}
+                      </button>
+                    ))}
+                  </div>
                 </div>
               </div>
             </div>
@@ -587,104 +590,155 @@ export default function AdminDashboardClient() {
                 No hay trabajadores que coincidan
               </div>
             ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full">
-                  <thead>
-                    <tr className="border-b border-border-subtle bg-background-secondary/50">
-                      <th className="text-left py-3 px-4 font-medium w-10">
-                        <Checkbox
-                          checked={selectedIds.size === filteredEmployees.length && filteredEmployees.length > 0}
-                          onCheckedChange={toggleSelectAll}
-                        />
-                      </th>
-                      <th className="text-left py-3 px-4 font-medium text-sm text-foreground-secondary">Nombre</th>
-                      <th className="text-left py-3 px-4 font-medium text-sm text-foreground-secondary hidden lg:table-cell">Grupo</th>
-                      <th className="text-center py-3 px-4 font-medium text-sm text-foreground-secondary">Status</th>
-                      <th className="text-center py-3 px-4 font-medium text-sm text-foreground-secondary">Entrada</th>
-                      <th className="text-center py-3 px-4 font-medium text-sm text-foreground-secondary">Salida</th>
-                      <th className="text-center py-3 px-4 font-medium text-sm text-foreground-secondary">Total</th>
-                      <th className="text-center py-3 px-4 font-medium text-sm text-foreground-secondary">Acciones</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {filteredEmployees.map((employee) => (
-                      <tr key={employee.id} className="border-b border-border-subtle hover:bg-background-secondary/50 transition-colors">
-                        <td className="py-3 px-4">
+              <>
+                <div className="lg:overflow-x-auto">
+                  <table className="hidden lg:table w-full">
+                    <thead>
+                      <tr className="border-b border-border-subtle bg-background-secondary/50">
+                        <th className="text-left py-3 px-4 font-medium w-10">
                           <Checkbox
-                            checked={selectedIds.has(employee.id)}
-                            onCheckedChange={() => toggleSelect(employee.id)}
+                            checked={selectedIds.size === filteredEmployees.length && filteredEmployees.length > 0}
+                            onCheckedChange={toggleSelectAll}
                           />
-                        </td>
-                        <td className="py-3 px-4">
-                          <div className="font-medium text-foreground">{employee.full_name}</div>
-                        </td>
-                        <td className="py-3 px-4 hidden lg:table-cell">
-                          <select
-                            value={employee.work_group_id || ''}
-                            onChange={(e) => handleAssignGroup(employee.id, e.target.value || null)}
-                            className="h-8 px-2 rounded-md border border-border bg-background text-sm"
-                          >
-                            <option value="">Sin grupo</option>
-                            {workGroups.map(group => (
-                              <option key={group.id} value={group.id}>{group.name}</option>
-                            ))}
-                          </select>
-                        </td>
-                        <td className="py-3 px-4 text-center">
-                          <Badge variant={employee.is_present ? 'success' : 'secondary'}>
-                            {employee.is_present ? 'Con registro' : 'Sin registro'}
-                          </Badge>
-                        </td>
-                        <td className="py-3 px-4 text-center text-foreground-secondary">
-                          {formatTime(employee.today_log?.clock_in || null)}
-                        </td>
-                        <td className="py-3 px-4 text-center text-foreground-secondary">
-                          {formatTime(employee.today_log?.clock_out || null)}
-                        </td>
-                        <td className="py-3 px-4 text-center text-foreground-secondary">
-                          {employee.today_log?.total_hours ? `${employee.today_log.total_hours}h` : '-'}
-                        </td>
-                        <td className="py-3 px-4">
-                          <div className="flex justify-center gap-1">
-                            <TooltipProvider>
-                              <Tooltip>
-                                <TooltipTrigger asChild>
-                                  <Button size="sm" variant="ghost" className="text-success hover:bg-success-muted" onClick={() => openClockModal(employee, 'clock_in')}>
-                                    <LogIn className="h-4 w-4" />
-                                  </Button>
-                                </TooltipTrigger>
-                                <TooltipContent>Clock In</TooltipContent>
-                              </Tooltip>
-                              <Tooltip>
-                                <TooltipTrigger asChild>
-                                  <Button size="sm" variant="ghost" className="text-error hover:bg-error-muted" onClick={() => openClockModal(employee, 'clock_out')}>
-                                    <LogOut className="h-4 w-4" />
-                                  </Button>
-                                </TooltipTrigger>
-                                <TooltipContent>Clock Out</TooltipContent>
-                              </Tooltip>
-                              <Tooltip>
-                                <TooltipTrigger asChild>
-                                  <Button size="sm" variant="ghost" className="text-accent hover:bg-accent-muted" onClick={() => openEditModal(employee)}>
-                                    <Pencil className="h-4 w-4" />
-                                  </Button>
-                                </TooltipTrigger>
-                                <TooltipContent>Editar</TooltipContent>
-                              </Tooltip>
-                            </TooltipProvider>
-                          </div>
-                        </td>
+                        </th>
+                        <th className="text-left py-3 px-4 font-medium text-sm text-foreground-secondary">Nombre</th>
+                        <th className="text-left py-3 px-4 font-medium text-sm text-foreground-secondary hidden lg:table-cell">Grupo</th>
+                        <th className="text-center py-3 px-4 font-medium text-sm text-foreground-secondary">Status</th>
+                        <th className="text-center py-3 px-4 font-medium text-sm text-foreground-secondary">Entrada</th>
+                        <th className="text-center py-3 px-4 font-medium text-sm text-foreground-secondary">Salida</th>
+                        <th className="text-center py-3 px-4 font-medium text-sm text-foreground-secondary">Total</th>
+                        <th className="text-center py-3 px-4 font-medium text-sm text-foreground-secondary">Acciones</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+                    </thead>
+                    <tbody>
+                      {filteredEmployees.map((employee) => (
+                        <tr key={employee.id} className="border-b border-border-subtle hover:bg-background-secondary/50 transition-colors">
+                          <td className="py-3 px-4">
+                            <Checkbox
+                              checked={selectedIds.has(employee.id)}
+                              onCheckedChange={() => toggleSelect(employee.id)}
+                            />
+                          </td>
+                          <td className="py-3 px-4">
+                            <div className="font-medium text-foreground">{employee.full_name}</div>
+                          </td>
+                          <td className="py-3 px-4 hidden lg:table-cell">
+                            <select
+                              value={employee.work_group_id || ''}
+                              onChange={(e) => handleAssignGroup(employee.id, e.target.value || null)}
+                              className="h-8 px-2 rounded-md border border-border bg-background text-sm"
+                            >
+                              <option value="">Sin grupo</option>
+                              {workGroups.map(group => (
+                                <option key={group.id} value={group.id}>{group.name}</option>
+                              ))}
+                            </select>
+                          </td>
+                          <td className="py-3 px-4 text-center">
+                            <Badge variant={employee.is_present ? 'success' : 'secondary'}>
+                              {employee.is_present ? 'Con registro' : 'Sin registro'}
+                            </Badge>
+                          </td>
+                          <td className="py-3 px-4 text-center text-foreground-secondary">
+                            {formatTime(employee.today_log?.clock_in || null)}
+                          </td>
+                          <td className="py-3 px-4 text-center text-foreground-secondary">
+                            {formatTime(employee.today_log?.clock_out || null)}
+                          </td>
+                          <td className="py-3 px-4 text-center text-foreground-secondary">
+                            {employee.today_log?.total_hours ? `${employee.today_log.total_hours}h` : '-'}
+                          </td>
+                          <td className="py-3 px-4">
+                            <div className="flex justify-center gap-1">
+                              <TooltipProvider>
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <Button size="sm" variant="ghost" className="text-success hover:bg-success-muted" onClick={() => openClockModal(employee, 'clock_in')}>
+                                      <LogIn className="h-4 w-4" />
+                                    </Button>
+                                  </TooltipTrigger>
+                                  <TooltipContent>Clock In</TooltipContent>
+                                </Tooltip>
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <Button size="sm" variant="ghost" className="text-error hover:bg-error-muted" onClick={() => openClockModal(employee, 'clock_out')}>
+                                      <LogOut className="h-4 w-4" />
+                                    </Button>
+                                  </TooltipTrigger>
+                                  <TooltipContent>Clock Out</TooltipContent>
+                                </Tooltip>
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <Button size="sm" variant="ghost" className="text-accent hover:bg-accent-muted" onClick={() => openEditModal(employee)}>
+                                      <Pencil className="h-4 w-4" />
+                                    </Button>
+                                  </TooltipTrigger>
+                                  <TooltipContent>Editar</TooltipContent>
+                                </Tooltip>
+                              </TooltipProvider>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+
+                <div className="lg:hidden divide-y divide-border-subtle">
+                  {filteredEmployees.map((employee) => (
+                    <div key={employee.id} className="p-4 hover:bg-background-secondary/30">
+                      <div className="flex items-start gap-3">
+                        <Checkbox
+                          checked={selectedIds.has(employee.id)}
+                          onCheckedChange={() => toggleSelect(employee.id)}
+                          className="mt-1"
+                        />
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center justify-between gap-2 mb-2">
+                            <div className="font-medium text-foreground truncate">{employee.full_name}</div>
+                            <Badge variant={employee.is_present ? 'success' : 'secondary'} className="shrink-0">
+                              {employee.is_present ? 'Con registro' : 'Sin registro'}
+                            </Badge>
+                          </div>
+                          <div className="grid grid-cols-3 gap-2 text-sm mb-3">
+                            <div>
+                              <div className="text-xs text-foreground-secondary">Entrada</div>
+                              <div className="text-foreground-secondary">{formatTime(employee.today_log?.clock_in || null)}</div>
+                            </div>
+                            <div>
+                              <div className="text-xs text-foreground-secondary">Salida</div>
+                              <div className="text-foreground-secondary">{formatTime(employee.today_log?.clock_out || null)}</div>
+                            </div>
+                            <div>
+                              <div className="text-xs text-foreground-secondary">Total</div>
+                              <div className="text-foreground-secondary">{employee.today_log?.total_hours ? `${employee.today_log.total_hours}h` : '-'}</div>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <Button size="sm" variant="outline" className="text-success border-success/30 hover:bg-success-muted h-8" onClick={() => openClockModal(employee, 'clock_in')}>
+                              <LogIn className="h-4 w-4" />
+                              <span className="ml-1">Entrada</span>
+                            </Button>
+                            <Button size="sm" variant="outline" className="text-error border-error/30 hover:bg-error-muted h-8" onClick={() => openClockModal(employee, 'clock_out')}>
+                              <LogOut className="h-4 w-4" />
+                              <span className="ml-1">Salida</span>
+                            </Button>
+                            <Button size="sm" variant="outline" className="text-accent border-accent/30 hover:bg-accent-muted h-8" onClick={() => openEditModal(employee)}>
+                              <Pencil className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </>
             )}
           </CardContent>
         </Card>
 
         <Dialog open={modal === 'mass'} onOpenChange={() => setModal(null)}>
-          <DialogContent className="max-w-lg max-h-[80vh] overflow-y-auto">
+          <DialogContent className="w-[95vw] max-w-lg max-h-[85vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle className={massAction === 'clock_in' ? 'text-success' : massAction === 'clock_out' ? 'text-error' : 'text-accent'}>
                 {massAction === 'clock_in' ? 'Registro Masivo de Entradas' : massAction === 'clock_out' ? 'Registro Masivo de Salidas' : 'Registro Masivo Completo'}
@@ -697,40 +751,42 @@ export default function AdminDashboardClient() {
                 </div>
               )}
 
-              <div className={massAction === 'clock_full' ? 'space-y-4' : 'grid grid-cols-2 gap-4'}>
-                <div className="space-y-2">
-                  <Label>Fecha</Label>
-                  <Input type="date" value={massDate} onChange={(e) => setMassDate(e.target.value)} />
-                </div>
-                {massAction === 'clock_full' ? (
-                  <div className="grid grid-cols-2 gap-4">
+              <div className={massAction === 'clock_full' ? 'space-y-4' : 'space-y-4'}>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-2">
+                    <Label>Fecha</Label>
+                    <Input type="date" value={massDate} onChange={(e) => setMassDate(e.target.value)} />
+                  </div>
+                  {massAction === 'clock_full' ? (
+                    <div className="grid grid-cols-2 gap-2 col-span-2">
+                      <div className="space-y-2">
+                        <Label className="text-success text-xs">Entrada</Label>
+                        <Input type="time" value={massTime} onChange={(e) => setMassTime(e.target.value)} />
+                      </div>
+                      <div className="space-y-2">
+                        <Label className="text-error text-xs">Salida</Label>
+                        <Input type="time" value={massTimeOut} onChange={(e) => setMassTimeOut(e.target.value)} />
+                      </div>
+                    </div>
+                  ) : (
                     <div className="space-y-2">
-                      <Label className="text-success">Hora Entrada</Label>
+                      <Label className={massAction === 'clock_in' ? 'text-success' : 'text-error'}>
+                        {massAction === 'clock_in' ? 'Hora Entrada' : 'Hora Salida'}
+                      </Label>
                       <Input type="time" value={massTime} onChange={(e) => setMassTime(e.target.value)} />
                     </div>
-                    <div className="space-y-2">
-                      <Label className="text-error">Hora Salida</Label>
-                      <Input type="time" value={massTimeOut} onChange={(e) => setMassTimeOut(e.target.value)} />
-                    </div>
-                  </div>
-                ) : (
-                  <div className="space-y-2">
-                    <Label className={massAction === 'clock_in' ? 'text-success' : 'text-error'}>
-                      {massAction === 'clock_in' ? 'Hora Entrada' : 'Hora Salida'}
-                    </Label>
-                    <Input type="time" value={massTime} onChange={(e) => setMassTime(e.target.value)} />
-                  </div>
-                )}
+                  )}
+                </div>
               </div>
 
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
                   <Label>Seleccionar Trabajadores</Label>
                   <Badge variant="secondary" className="bg-accent-muted text-accent">
-                    {selectedIds.size} seleccionados
+                    {selectedIds.size} sel.
                   </Badge>
                 </div>
-                <div className="border border-border rounded-lg max-h-64 overflow-y-auto">
+                <div className="border border-border rounded-lg max-h-48 sm:max-h-64 overflow-y-auto">
                   {employees.length === 0 ? (
                     <div className="p-4 text-center text-foreground-secondary text-sm">No hay trabajadores</div>
                   ) : (
@@ -740,7 +796,7 @@ export default function AdminDashboardClient() {
                           checked={selectedIds.size === employees.length}
                           onCheckedChange={toggleSelectAll}
                         />
-                        <span className="text-sm font-medium">Seleccionar todos</span>
+                        <span className="text-sm font-medium">Todos</span>
                       </div>
                       {employees.map((emp) => (
                         <div key={emp.id} className="flex items-center gap-2 p-2 hover:bg-background-secondary rounded">
@@ -748,9 +804,9 @@ export default function AdminDashboardClient() {
                             checked={selectedIds.has(emp.id)}
                             onCheckedChange={() => toggleSelect(emp.id)}
                           />
-                          <div className="flex-1">
-                            <div className="text-sm font-medium">{emp.full_name}</div>
-                            <div className="text-xs text-foreground-secondary">{emp.email}</div>
+                          <div className="flex-1 min-w-0">
+                            <div className="text-sm font-medium truncate">{emp.full_name}</div>
+                            <div className="text-xs text-foreground-secondary truncate">{emp.email}</div>
                           </div>
                         </div>
                       ))}
@@ -759,7 +815,7 @@ export default function AdminDashboardClient() {
                 </div>
               </div>
 
-              <div className="flex gap-2 pt-2">
+              <div className="flex flex-col sm:flex-row gap-2 pt-2">
                 <Button variant="outline" onClick={() => setModal(null)} className="flex-1">
                   Cancelar
                 </Button>
@@ -776,7 +832,7 @@ export default function AdminDashboardClient() {
         </Dialog>
 
         <Dialog open={modal === 'clock'} onOpenChange={() => setModal(null)}>
-          <DialogContent className="max-w-md">
+          <DialogContent className="w-[95vw] max-w-md">
             <DialogHeader>
               <DialogTitle className={massAction === 'clock_in' ? 'text-success' : massAction === 'clock_out' ? 'text-error' : 'text-accent'}>
                 {massAction === 'clock_in' ? 'Registrar Entrada' : massAction === 'clock_out' ? 'Registrar Salida' : 'Registro Completo'}
@@ -795,13 +851,13 @@ export default function AdminDashboardClient() {
                     <Label>Fecha</Label>
                     <Input type="date" value={massDate} onChange={(e) => setMassDate(e.target.value)} />
                   </div>
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-2 gap-3">
                     <div className="space-y-2">
-                      <Label className="text-success">Hora Entrada</Label>
+                      <Label className="text-success text-xs">Hora Entrada</Label>
                       <Input type="time" value={massTime} onChange={(e) => setMassTime(e.target.value)} />
                     </div>
                     <div className="space-y-2">
-                      <Label className="text-error">Hora Salida</Label>
+                      <Label className="text-error text-xs">Hora Salida</Label>
                       <Input type="time" value={massTimeOut} onChange={(e) => setMassTimeOut(e.target.value)} />
                     </div>
                   </div>
@@ -821,9 +877,9 @@ export default function AdminDashboardClient() {
                 </div>
               )}
             </div>
-            <DialogFooter className="gap-2 sm:gap-0">
-              <Button variant="outline" onClick={() => setModal(null)}>Cancelar</Button>
-              <Button onClick={handleClockAction} disabled={isSubmitting}>
+            <DialogFooter className="flex-col sm:flex-row gap-2">
+              <Button variant="outline" onClick={() => setModal(null)} className="flex-1">Cancelar</Button>
+              <Button onClick={handleClockAction} disabled={isSubmitting} className="flex-1">
                 {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Confirmar'}
               </Button>
             </DialogFooter>
@@ -831,7 +887,7 @@ export default function AdminDashboardClient() {
         </Dialog>
 
         <Dialog open={modal === 'edit'} onOpenChange={() => setModal(null)}>
-          <DialogContent className="max-w-md">
+          <DialogContent className="w-[95vw] max-w-md">
             <DialogHeader>
               <DialogTitle>Editar Registro</DialogTitle>
               <DialogDescription>{modalEmployee?.full_name}</DialogDescription>
@@ -846,13 +902,13 @@ export default function AdminDashboardClient() {
                 <Label>Fecha</Label>
                 <Input type="date" value={editDate} onChange={(e) => setEditDate(e.target.value)} />
               </div>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-2">
-                  <Label className="text-success">Entrada</Label>
+                  <Label className="text-success text-xs">Entrada</Label>
                   <Input type="time" value={editIn} onChange={(e) => setEditIn(e.target.value)} />
                 </div>
                 <div className="space-y-2">
-                  <Label className="text-error">Salida</Label>
+                  <Label className="text-error text-xs">Salida</Label>
                   <Input type="time" value={editOut} onChange={(e) => setEditOut(e.target.value)} />
                 </div>
               </div>
@@ -861,14 +917,14 @@ export default function AdminDashboardClient() {
                 <Input value={editNotes} onChange={(e) => setEditNotes(e.target.value)} placeholder="Opcional..." />
               </div>
             </div>
-            <DialogFooter className="gap-2 sm:gap-0">
+            <DialogFooter className="flex-col sm:flex-row gap-2">
               {modalEmployee?.today_log && (
-                <Button variant="destructive" onClick={handleDeleteLog} disabled={isSubmitting} className="mr-auto">
+                <Button variant="destructive" onClick={handleDeleteLog} disabled={isSubmitting} className="w-full sm:w-auto mr-auto">
                   <Trash2 className="h-4 w-4" />
                 </Button>
               )}
-              <Button variant="outline" onClick={() => setModal(null)}>Cancelar</Button>
-              <Button onClick={handleEditLog} disabled={isSubmitting}>
+              <Button variant="outline" onClick={() => setModal(null)} className="flex-1">Cancelar</Button>
+              <Button onClick={handleEditLog} disabled={isSubmitting} className="flex-1">
                 {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Guardar'}
               </Button>
             </DialogFooter>
@@ -876,7 +932,7 @@ export default function AdminDashboardClient() {
         </Dialog>
 
         <Dialog open={modal === 'config'} onOpenChange={() => setModal(null)}>
-          <DialogContent className="max-w-lg max-h-[80vh] overflow-y-auto">
+          <DialogContent className="w-[95vw] max-w-lg max-h-[85vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>Configuración</DialogTitle>
               <DialogDescription>Grupos de trabajo y horarios</DialogDescription>
@@ -889,12 +945,12 @@ export default function AdminDashboardClient() {
               )}
               <div className="space-y-3">
                 <h3 className="text-sm font-medium">Agregar/Editar Grupo</h3>
-                <div className="grid grid-cols-3 gap-2">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                   <Input placeholder="Nombre" value={groupName} onChange={(e) => setGroupName(e.target.value)} />
                   <Input type="time" value={groupIn} onChange={(e) => setGroupIn(e.target.value)} />
                   <Input type="time" value={groupOut} onChange={(e) => setGroupOut(e.target.value)} />
                 </div>
-                <div className="flex gap-2">
+                <div className="flex flex-wrap gap-2">
                   <Button size="sm" onClick={handleSaveGroup} disabled={isSubmitting}>
                     {editingGroup ? 'Actualizar' : 'Agregar'}
                   </Button>
@@ -913,8 +969,8 @@ export default function AdminDashboardClient() {
                 ) : (
                   <div className="space-y-2">
                     {workGroups.map(group => (
-                      <div key={group.id} className="flex items-center justify-between p-2 rounded-lg bg-background-secondary">
-                        <div className="flex items-center gap-4">
+                      <div key={group.id} className="flex items-center justify-between p-2 rounded-lg bg-background-secondary flex-wrap gap-2">
+                        <div className="flex items-center gap-2">
                           <span className="font-medium">{group.name}</span>
                           <span className="text-sm text-foreground-secondary">
                             {group.clock_in_time?.slice(0,5)} - {group.clock_out_time?.slice(0,5)}
@@ -941,7 +997,7 @@ export default function AdminDashboardClient() {
                     <p className="text-sm text-foreground-secondary">Todos los trabajadores tienen grupo asignado</p>
                   ) : (
                     employees.filter(e => !e.work_group_id).map(emp => (
-                      <div key={emp.id} className="flex items-center justify-between p-2 rounded-lg bg-background-secondary">
+                      <div key={emp.id} className="flex items-center justify-between p-2 rounded-lg bg-background-secondary flex-wrap gap-2">
                         <span className="text-sm">{emp.full_name}</span>
                         <select
                           value=""

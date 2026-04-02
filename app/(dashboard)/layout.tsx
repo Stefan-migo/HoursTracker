@@ -1,11 +1,13 @@
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
-import { Clock, User, LayoutDashboard, Users, FileSpreadsheet, AlertTriangle, Clock4 } from 'lucide-react'
+import { Clock, User, LayoutDashboard, Users, FileSpreadsheet, AlertTriangle, Clock4, Menu, X } from 'lucide-react'
 import { LogoutButton } from './logout-button'
 import { ThemeSwitch } from '@/components/theme-switch'
 import { TooltipProvider } from '@/components/ui/tooltip'
 import { Suspense } from 'react'
+import { Sheet, SheetContent, SheetTrigger, SheetHeader, SheetTitle, SheetClose } from '@/components/ui/sheet'
+import { Button } from '@/components/ui/button'
 
 async function getUser() {
   const supabase = await createClient()
@@ -97,7 +99,112 @@ export default async function DashboardRootLayout({
               <Suspense fallback={<div className="h-9 w-9 animate-pulse bg-background-secondary rounded" />}>
                 <ThemeSwitch />
               </Suspense>
-              <LogoutButton />
+              <Sheet>
+                <SheetTrigger asChild>
+                  <Button variant="ghost" size="icon" className="h-9 w-9">
+                    <Menu className="h-5 w-5" />
+                  </Button>
+                </SheetTrigger>
+                <SheetContent side="left" className="w-72 bg-background">
+                  <SheetHeader className="mb-4">
+                    <SheetTitle className="flex items-center gap-2">
+                      <Clock className="h-5 w-5 text-accent" />
+                      HoursTracker
+                    </SheetTitle>
+                  </SheetHeader>
+                  <nav className="flex flex-col gap-1">
+                    <div className="mb-4 p-3 bg-background-secondary rounded-lg">
+                      <div className="flex items-center gap-3">
+                        <div className="h-10 w-10 rounded-full bg-accent-muted flex items-center justify-center">
+                          <User className="h-5 w-5 text-accent" />
+                        </div>
+                        <div>
+                          <div className="font-medium text-foreground">{userName || 'Usuario'}</div>
+                          <div className="text-xs text-foreground-secondary">
+                            {userRole === 'admin' ? 'Administrador' : 'Trabajador'}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                    <SheetClose asChild>
+                      <Link
+                        href={userRole === 'admin' ? '/admin' : '/worker'}
+                        className="flex items-center gap-3 px-3 py-2.5 text-sm font-medium rounded-md transition-all duration-200 text-foreground hover:bg-background-secondary"
+                      >
+                        <LayoutDashboard className="h-4 w-4" />
+                        Dashboard
+                      </Link>
+                    </SheetClose>
+                    {userRole === 'admin' && (
+                      <>
+                        <SheetClose asChild>
+                          <Link
+                            href="/admin/workers"
+                            className="flex items-center gap-3 px-3 py-2.5 text-sm font-medium rounded-md transition-all duration-200 text-foreground hover:bg-background-secondary"
+                          >
+                            <Users className="h-4 w-4" />
+                            Trabajadores
+                          </Link>
+                        </SheetClose>
+                        <SheetClose asChild>
+                          <Link
+                            href="/admin/logs"
+                            className="flex items-center gap-3 px-3 py-2.5 text-sm font-medium rounded-md transition-all duration-200 text-foreground hover:bg-background-secondary"
+                          >
+                            <Clock4 className="h-4 w-4" />
+                            Registros
+                          </Link>
+                        </SheetClose>
+                        <SheetClose asChild>
+                          <Link
+                            href="/admin/import"
+                            className="flex items-center gap-3 px-3 py-2.5 text-sm font-medium rounded-md transition-all duration-200 text-foreground hover:bg-background-secondary"
+                          >
+                            <FileSpreadsheet className="h-4 w-4" />
+                            Importar Excel
+                          </Link>
+                        </SheetClose>
+                        <SheetClose asChild>
+                          <Link
+                            href="/admin/disputes"
+                            className="flex items-center gap-3 px-3 py-2.5 text-sm font-medium rounded-md transition-all duration-200 text-foreground hover:bg-background-secondary"
+                          >
+                            <AlertTriangle className="h-4 w-4" />
+                            Mediaciones
+                          </Link>
+                        </SheetClose>
+                      </>
+                    )}
+                    {(userRole === 'employee' || userRole === 'worker') && (
+                      <>
+                        <SheetClose asChild>
+                          <Link
+                            href="/worker/my-logs"
+                            className="flex items-center gap-3 px-3 py-2.5 text-sm font-medium rounded-md transition-all duration-200 text-foreground hover:bg-background-secondary"
+                          >
+                            <Clock4 className="h-4 w-4" />
+                            Mis Registros
+                          </Link>
+                        </SheetClose>
+                        {mediationsEnabled && (
+                          <SheetClose asChild>
+                            <Link
+                              href="/worker/disputes"
+                              className="flex items-center gap-3 px-3 py-2.5 text-sm font-medium rounded-md transition-all duration-200 text-foreground hover:bg-background-secondary"
+                            >
+                              <AlertTriangle className="h-4 w-4" />
+                              Mis Mediaciones
+                            </Link>
+                          </SheetClose>
+                        )}
+                      </>
+                    )}
+                    <div className="border-t border-border mt-4 pt-4">
+                      <LogoutButton />
+                    </div>
+                  </nav>
+                </SheetContent>
+              </Sheet>
             </div>
           </div>
         </div>

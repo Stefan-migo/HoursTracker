@@ -28,23 +28,53 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'El nombre es requerido' }, { status: 400 })
   }
 
-  if (!email) {
-    return NextResponse.json({ error: 'El email es requerido' }, { status: 400 })
+  if (sendInvitation && !email) {
+    return NextResponse.json({ error: 'El email es requerido para enviar invitación' }, { status: 400 })
   }
 
-  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-  if (!emailRegex.test(email)) {
-    return NextResponse.json({ error: 'El formato del email es inválido' }, { status: 400 })
+  if (email) {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+    if (!emailRegex.test(email)) {
+      return NextResponse.json({ error: 'El formato del email es inválido' }, { status: 400 })
+    }
+
+    const { data: existingProfile } = await supabase
+      .from('profiles')
+      .select('id')
+      .eq('email', email.toLowerCase())
+      .single()
+
+    if (existingProfile) {
+      return NextResponse.json({ error: 'Ya existe un trabajador con este email' }, { status: 400 })
+    }
   }
 
-  const { data: existingProfile } = await supabase
-    .from('profiles')
-    .select('id')
-    .eq('email', email.toLowerCase())
-    .single()
+  if (!sendInvitation) {
+    const { data: newProfile, error: profileError } = await supabase
+      .from('profiles')
+      .upsert({
+        full_name: full_name.trim(),
+        email: null,
+        role: 'employee' as const,
+        is_active: true,
+        invitation_status: 'none' as const,
+      })
+      .select()
+      .single()
 
-  if (existingProfile) {
-    return NextResponse.json({ error: 'Ya existe un trabajador con este email' }, { status: 400 })
+    if (profileError) {
+      console.error('Error creating profile:', profileError)
+      return NextResponse.json({ error: 'Error al crear trabajador' }, { status: 500 })
+    }
+
+    return NextResponse.json({
+      success: true,
+      user: {
+        id: newProfile.id,
+        full_name: full_name.trim(),
+      },
+      message: 'Trabajador creado sin invitación',
+    })
   }
 
   try {

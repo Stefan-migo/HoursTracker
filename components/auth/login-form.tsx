@@ -11,7 +11,11 @@ import { toast } from 'sonner'
 import { Spinner } from '@/components/ui/spinner'
 import Link from 'next/link'
 
-function CreatePasswordForm() {
+interface CreatePasswordFormProps {
+  inviteToken?: string | null
+}
+
+function CreatePasswordForm({ inviteToken }: CreatePasswordFormProps) {
   const [error, setError] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(false)
   const [success, setSuccess] = useState(false)
@@ -47,6 +51,7 @@ function CreatePasswordForm() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          invite_token: inviteToken,
           password,
         }),
       })
@@ -197,11 +202,11 @@ export function LoginForm() {
   const inviteEmail = searchParams.get('email')
   
   if (inviteToken) {
-    return <CreatePasswordForm />
+    return <CreatePasswordForm inviteToken={inviteToken} />
   }
   
   if (fromInvite === 'true') {
-    return <CreatePasswordForm />
+    return <CreatePasswordForm inviteToken={inviteToken} />
   }
 
   if (confirmed === 'true') {

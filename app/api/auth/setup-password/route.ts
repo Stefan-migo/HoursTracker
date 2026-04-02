@@ -5,7 +5,7 @@ import { createClient } from '@/lib/supabase/server'
 export async function POST(request: Request) {
   try {
     const body = await request.json()
-    const { invite_token, password } = body
+    const { invite_token, password, email: bodyEmail } = body
 
     if (!password) {
       return NextResponse.json({ error: 'La contraseña es requerida' }, { status: 400 })
@@ -15,15 +15,45 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'La contraseña debe tener al menos 6 caracteres' }, { status: 400 })
     }
 
-    const supabase = await createClient()
-    const { data: { user }, error: getUserError } = await supabase.auth.getUser()
+    let userId: string | null = null
+    let userEmail: string | null = null
 
-    if (getUserError || !user) {
-      return NextResponse.json({ error: 'No se pudo verificar el usuario' }, { status: 401 })
+    // Try to get current session user first
+    const supabase = await createClient()
+    const { data: { user: sessionUser }, error: getUserError } = await supabase.auth.getUser()
+
+    if (sessionUser) {
+      userId = sessionUser.id
+      userEmail = sessionUser.email || null
+    } else if (invite_token) {
+      // Decode invite token to get email
+      try {
+        const decoded = Buffer.from(invite_token, 'base64url').toString('utf-8')
+        const [email, timestamp] = decoded.split(':')
+        
+        if (email && timestamp) {
+          // Find user by email
+          const { data: userData, error: findError } = await supabaseAdmin.auth.admin.listUsers()
+          
+          if (!findError && userData.users) {
+            const foundUser = userData.users.find(u => u.email?.toLowerCase() === email.toLowerCase())
+            if (foundUser) {
+              userId = foundUser.id
+              userEmail = foundUser.email || null
+            }
+          }
+        }
+      } catch (decodeError) {
+        console.error('Error decoding invite token:', decodeError)
+      }
+    }
+
+    if (!userId) {
+      return NextResponse.json({ error: 'No se pudo verificar el usuario. El enlace puede haber expirado.' }, { status: 401 })
     }
 
     const { error: updateError } = await supabaseAdmin.auth.admin.updateUserById(
-      user.id,
+      userId,
       { password }
     )
 
@@ -35,30 +65,30 @@ export async function POST(request: Request) {
     await supabase
       .from('profiles')
       .update({ invitation_status: 'active' })
-      .eq('id', user.id)
+      .eq('id', userId)
 
-    const { data, error: signInError } = await supabase.auth.signInWithPassword({
-      email: user.email!,
-      password,
-    })
-
-    if (signInError) {
-      return NextResponse.json({
-        success: true,
-        auto_login: false,
-        message: 'Contraseña configurada. Ahora puedes iniciar sesión.',
+    // Try to sign in
+    if (userEmail) {
+      const { data, error: signInError } = await supabase.auth.signInWithPassword({
+        email: userEmail,
+        password,
       })
-    }
 
-    const sessionToken = data.session.access_token
-    const refreshToken = data.session.refresh_token
+      if (!signInError && data.session) {
+        return NextResponse.json({
+          success: true,
+          auto_login: true,
+          access_token: data.session.access_token,
+          refresh_token: data.session.refresh_token,
+          message: 'Contraseña configurada. Iniciando sesión...',
+        })
+      }
+    }
 
     return NextResponse.json({
       success: true,
-      auto_login: true,
-      access_token: sessionToken,
-      refresh_token: refreshToken,
-      message: 'Contraseña configurada. Iniciando sesión...',
+      auto_login: false,
+      message: 'Contraseña configurada. Ahora puedes iniciar sesión.',
     })
   } catch (error) {
     console.error('Unexpected error:', error)

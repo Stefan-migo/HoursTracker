@@ -48,10 +48,27 @@ export async function POST(request: Request) {
     const { data: authUser } = await supabaseAdmin.auth.admin.getUserById(employeeId)
     
     if (authUser?.user) {
-      return NextResponse.json({ 
-        error: 'El empleado ya tiene una cuenta activa',
-        invitation_status: 'active'
-      }, { status: 400 })
+      // Check if it's a placeholder user (no real email)
+      const isPlaceholder = authUser.user.email?.includes('placeholder.local')
+      
+      if (!isPlaceholder) {
+        return NextResponse.json({ 
+          error: 'El empleado ya tiene una cuenta activa',
+          invitation_status: 'active'
+        }, { status: 400 })
+      }
+      
+      // It's a placeholder user - update with real email and send invite
+      const { error: updateError } = await supabaseAdmin.auth.admin.updateUserById(
+        employeeId,
+        { email: employee.email }
+      )
+      
+      if (updateError) {
+        return NextResponse.json({ 
+          error: 'No se pudo actualizar el email del usuario',
+        }, { status: 500 })
+      }
     }
 
     const result = await sendInviteEmail({

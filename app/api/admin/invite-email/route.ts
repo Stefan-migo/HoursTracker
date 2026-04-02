@@ -109,51 +109,33 @@ export async function POST(request: Request) {
 
     console.log('Invite result:', JSON.stringify(result))
 
-    const profileData = {
-      full_name: full_name.trim(),
-      email: email.toLowerCase(),
-      role: 'employee' as const,
-      is_active: true,
-      invitation_status: result.success ? 'active' as const : 'invited' as const,
-    }
-
-    if (result.success && result.userId) {
-      await supabaseAdmin
-        .from('profiles')
-        .upsert({
-          id: result.userId,
-          ...profileData,
-        })
-
+    if (!result.success) {
       return NextResponse.json({
-        success: true,
-        user: {
-          id: result.userId,
-          email: email.toLowerCase(),
-          full_name,
-        },
-        message: result.method === 'supabase'
-          ? 'Invitación enviada. El trabajador recibirá un correo con el enlace para crear su contraseña.'
-          : 'Invitación enviada.',
-      })
+        success: false,
+        error: result.error || 'Error al enviar invitación',
+      }, { status: 500 })
     }
 
-    if (result.inviteUrl) {
-      return NextResponse.json({
-        success: true,
-        user: {
-          email: email.toLowerCase(),
-          full_name,
-        },
-        invite_url: result.inviteUrl,
-        message: `Invitación creada. ${result.error || 'Copia el enlace para compartirlo manualmente.'}: ${result.inviteUrl}`,
+    await supabaseAdmin
+      .from('profiles')
+      .upsert({
+        id: result.userId,
+        full_name: full_name.trim(),
+        email: email.toLowerCase(),
+        role: 'employee',
+        is_active: true,
+        invitation_status: 'pending',
       })
-    }
 
     return NextResponse.json({
-      success: false,
-      error: result.error || 'Error al enviar invitación',
-    }, { status: 500 })
+      success: true,
+      user: {
+        id: result.userId,
+        email: email.toLowerCase(),
+        full_name,
+      },
+      message: 'Invitación enviada. El trabajador recibirá un correo con el enlace para crear su contraseña.',
+    })
 
   } catch (error) {
     console.error('Unexpected error:', error)

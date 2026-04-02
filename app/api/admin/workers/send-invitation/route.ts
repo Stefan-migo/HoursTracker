@@ -1,7 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import { supabaseAdmin } from '@/lib/supabase/admin'
 import { NextResponse } from 'next/server'
-import { sendInviteEmail } from '@/lib/email/sender'
 
 export async function POST(request: Request) {
   const supabase = await createClient()
@@ -62,8 +61,8 @@ export async function POST(request: Request) {
         }, { status: 400 })
       }
       
-      // It's a placeholder user - delete and recreate with real email
-      console.log('Deleting placeholder user and recreating with:', employee.email)
+      // It's a placeholder user - delete and recreate with real email using Supabase invite
+      console.log('Deleting placeholder user and sending invite via Supabase to:', employee.email)
       
       // Delete placeholder user
       const { error: deleteError } = await supabaseAdmin.auth.admin.deleteUser(employeeId)
@@ -74,91 +73,78 @@ export async function POST(request: Request) {
         }, { status: 500 })
       }
       
-      // Create new user with real email
-      const { data: newUser, error: createError } = await supabaseAdmin.auth.admin.createUser({
-        email: employee.email,
-        email_confirm: false,
-        user_metadata: { full_name: employee.full_name },
-      })
+      // Use Supabase's inviteUserByEmail - it sends email automatically
+      const { data: inviteData, error: inviteError } = await supabaseAdmin.auth.admin.inviteUserByEmail(
+        employee.email,
+        { data: { full_name: employee.full_name } }
+      )
       
-      if (createError) {
-        console.error('Error creating new user:', createError)
+      if (inviteError) {
+        console.error('Error sending Supabase invite:', inviteError)
         return NextResponse.json({ 
-          error: `No se pudo crear el usuario: ${createError.message}`,
+          error: `Error al enviar invitación: ${inviteError.message}`,
         }, { status: 500 })
       }
       
-      if (!newUser.user) {
+      if (!inviteData.user) {
         return NextResponse.json({ 
-          error: 'No se pudo crear el usuario',
-        }, { status: 500 })
-      }
-      
-      // Update profile with new user ID
-      await supabaseAdmin
-        .from('profiles')
-        .update({ id: newUser.user.id })
-        .eq('id', employeeId)
-    } else {
-      // No auth user exists - create one
-      console.log('No auth user found, creating one for:', employee.email)
-      const { data: newUser, error: createError } = await supabaseAdmin.auth.admin.createUser({
-        email: employee.email,
-        email_confirm: false,
-        user_metadata: { full_name: employee.full_name },
-      })
-      
-      if (createError) {
-        console.error('Error creating auth user:', createError)
-        return NextResponse.json({ 
-          error: `No se pudo crear el usuario: ${createError.message}`,
-        }, { status: 500 })
-      }
-      
-      if (!newUser.user) {
-        return NextResponse.json({ 
-          error: 'No se pudo crear el usuario',
+          error: 'No se pudo crear la invitación',
         }, { status: 500 })
       }
       
       // Update profile with new user ID
       await supabaseAdmin
         .from('profiles')
-        .update({ id: newUser.user.id })
-        .eq('id', employeeId)
-    }
-
-    const result = await sendInviteEmail({
-      email: employee.email,
-      fullName: employee.full_name || 'Usuario',
-    })
-
-    if (result.success) {
-      await supabase
-        .from('profiles')
-        .update({
-          invitation_status: 'active',
-          invitation_sent_at: new Date().toISOString()
+        .update({ 
+          id: inviteData.user.id,
+          invitation_status: 'pending'
         })
         .eq('id', employeeId)
-
+      
       return NextResponse.json({
         success: true,
-        message: result.method === 'supabase'
-          ? 'Invitación enviada. El empleado recibirá un correo para crear su contraseña.'
-          : 'Invitación enviada.',
-        invitation_status: 'active',
+        message: 'Invitación enviada. El empleado recibirá un correo para crear su contraseña.',
+        invitation_status: 'pending',
+        email_sent: true
+      })
+    } else {
+      // No auth user exists - use Supabase's inviteUserByEmail
+      console.log('No auth user found, sending Supabase invite to:', employee.email)
+      
+      const { data: inviteData, error: inviteError } = await supabaseAdmin.auth.admin.inviteUserByEmail(
+        employee.email,
+        { data: { full_name: employee.full_name } }
+      )
+      
+      if (inviteError) {
+        console.error('Error sending Supabase invite:', inviteError)
+        return NextResponse.json({ 
+          error: `Error al enviar invitación: ${inviteError.message}`,
+        }, { status: 500 })
+      }
+      
+      if (!inviteData.user) {
+        return NextResponse.json({ 
+          error: 'No se pudo crear la invitación',
+        }, { status: 500 })
+      }
+      
+      // Update profile with new user ID
+      await supabaseAdmin
+        .from('profiles')
+        .update({ 
+          id: inviteData.user.id,
+          invitation_status: 'pending'
+        })
+        .eq('id', employeeId)
+      
+      return NextResponse.json({
+        success: true,
+        message: 'Invitación enviada. El empleado recibirá un correo para crear su contraseña.',
+        invitation_status: 'pending',
         email_sent: true
       })
     }
-
-    return NextResponse.json({
-      success: false,
-      message: `No se pudo enviar la invitación. ${result.error || ''}`,
-      invite_url: result.inviteUrl,
-      invitation_status: 'pending'
-    }, { status: 500 })
-
   } catch (error) {
     console.error('Error sending invitation:', error)
     return NextResponse.json({

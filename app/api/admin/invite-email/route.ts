@@ -76,7 +76,7 @@ export async function POST(request: Request) {
           email: null,
           role: 'employee',
           is_active: true,
-          invitation_status: 'none',
+          invitation_status: 'pending',
         })
         .select()
         .single()

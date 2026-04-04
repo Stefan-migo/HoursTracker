@@ -183,21 +183,12 @@ export async function POST(request: Request) {
         for (const emp of employeesToInvite) {
           if (!emp.email) continue
 
-          const { data: existingUser } = await supabaseAdmin.auth.admin.listUsers()
-          const userExists = existingUser?.users.some(u => u.id === emp.id)
+          const { data: existingUser } = await supabaseAdmin.auth.admin.getUserById(emp.id)
 
-          if (!userExists) {
-            const { data: newUser, error: createError } = await supabaseAdmin.auth.admin.createUser({
-              email: emp.email.toLowerCase(),
-              email_confirm: true,
-              user_metadata: { full_name: emp.full_name },
-            })
-
-            if (createError) {
-              console.error(`Error creating user ${emp.email}:`, createError)
-              failedEmails.push(emp.email)
-              continue
-            }
+          if (existingUser?.user) {
+            console.log(`User ${emp.id} already exists in auth, skipping invite`)
+            failedEmails.push(emp.email)
+            continue
           }
 
           const result = await sendInviteEmail({
@@ -208,7 +199,7 @@ export async function POST(request: Request) {
           if (result.success) {
             await supabase
               .from('profiles')
-              .update({ invitation_status: 'active' })
+              .update({ invitation_status: 'pending' })
               .eq('id', emp.id)
             invitedCount++
           } else {
@@ -219,7 +210,7 @@ export async function POST(request: Request) {
         if (failedEmails.length > 0) {
           return NextResponse.json({
             success: invitedCount > 0,
-            message: `${invitedCount} invitación(es) enviadas, ${failedEmails.length} fallidas`,
+            message: `${invitedCount} invitación(es) enviadas, ${failedEmails.length} fallidas (usuarios ya existen)`,
             failedEmails
           })
         }

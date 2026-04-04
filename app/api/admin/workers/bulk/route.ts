@@ -186,9 +186,21 @@ export async function POST(request: Request) {
           const { data: existingUser } = await supabaseAdmin.auth.admin.getUserById(emp.id)
 
           if (existingUser?.user) {
-            console.log(`User ${emp.id} already exists in auth, skipping invite`)
-            failedEmails.push(emp.email)
-            continue
+            const isPlaceholder = existingUser.user.email?.includes('placeholder.local')
+            
+            if (isPlaceholder) {
+              console.log(`Deleting placeholder user ${emp.id} to re-invite with real email`)
+              const { error: deleteError } = await supabaseAdmin.auth.admin.deleteUser(emp.id)
+              if (deleteError) {
+                console.error('Error deleting placeholder user:', deleteError)
+                failedEmails.push(emp.email)
+                continue
+              }
+            } else {
+              console.log(`User ${emp.id} already exists in auth with real email, skipping invite`)
+              failedEmails.push(emp.email)
+              continue
+            }
           }
 
           const result = await sendInviteEmail({

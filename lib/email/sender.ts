@@ -1,54 +1,88 @@
+import { Resend } from 'resend'
 import { supabaseAdmin } from '@/lib/supabase/admin'
+import { getInviteEmailHtml } from './templates/invite'
 
 interface SendInviteOptions {
   email: string
   fullName: string
+  appUrl?: string
 }
 
 interface SendInviteResult {
   success: boolean
-  method: 'supabase'
+  method: 'resend'
   userId?: string
   inviteUrl?: string
   error?: string
 }
 
+function generateInviteToken(email: string): string {
+  return Buffer.from(`${email}:${Date.now()}`).toString('base64url')
+}
+
 export async function sendInviteEmail({
   email,
   fullName,
+  appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000',
 }: SendInviteOptions): Promise<SendInviteResult> {
   try {
-    const { data, error } = await supabaseAdmin.auth.admin.inviteUserByEmail(
-      email.toLowerCase(),
-      {
-        data: {
-          full_name: fullName,
-        },
-      }
-    )
+    const normalizedEmail = email.toLowerCase()
 
-    console.log('Supabase invite response:', { data, error })
+    const { data: existingUser } = await supabaseAdmin.auth.admin.listUsers()
+    const userExists = existingUser?.users.some(u => u.email?.toLowerCase() === normalizedEmail)
 
-    if (error) {
-      console.error('Supabase invite error:', error.message)
-      if (error.message.includes('already')) {
-        return { success: false, method: 'supabase', error: 'El usuario ya existe' }
-      }
-      return { success: false, method: 'supabase', error: error.message }
+    if (userExists) {
+      return { success: false, method: 'resend', error: 'El usuario ya existe' }
     }
 
-    if (data?.user) {
-      console.log('Invite sent via Supabase to:', email, 'userId:', data.user.id)
-      return { success: true, method: 'supabase', userId: data.user.id }
+    const { data: newUser, error: createError } = await supabaseAdmin.auth.admin.createUser({
+      email: normalizedEmail,
+      email_confirm: false,
+      user_metadata: { full_name: fullName },
+    })
+
+    if (createError) {
+      console.error('Error creating user:', createError)
+      return { success: false, method: 'resend', error: createError.message }
     }
 
-    return { success: false, method: 'supabase', error: 'No user data returned' }
-  } catch (supabaseError) {
-    console.error('Supabase invite failed:', supabaseError)
+    if (!newUser.user) {
+      return { success: false, method: 'resend', error: 'No se pudo crear el usuario' }
+    }
+
+    const inviteToken = generateInviteToken(normalizedEmail)
+    const inviteUrl = `${appUrl}/login?invite=${inviteToken}&email=${encodeURIComponent(normalizedEmail)}`
+
+    console.log('Sending invite email via Resend to:', normalizedEmail, 'with URL:', inviteUrl)
+
+    const resend = new Resend(process.env.RESEND_API_KEY)
+    
+    const emailResult = await resend.emails.send({
+      from: process.env.EMAIL_FROM || 'onboarding@resend.dev',
+      to: normalizedEmail,
+      subject: 'Invitación a HoursTracker - Crea tu contraseña',
+      html: getInviteEmailHtml(fullName, inviteUrl),
+    })
+
+    if (emailResult.error) {
+      console.error('Resend email error:', emailResult.error)
+      await supabaseAdmin.auth.admin.deleteUser(newUser.user.id)
+      return { success: false, method: 'resend', error: 'Error al enviar email' }
+    }
+
+    console.log('Invite email sent via Resend to:', normalizedEmail, 'userId:', newUser.user.id)
+    return { 
+      success: true, 
+      method: 'resend', 
+      userId: newUser.user.id,
+      inviteUrl 
+    }
+  } catch (err) {
+    console.error('Invite process failed:', err)
     return { 
       success: false, 
-      method: 'supabase', 
-      error: supabaseError instanceof Error ? supabaseError.message : 'Error desconocido' 
+      method: 'resend', 
+      error: err instanceof Error ? err.message : 'Error desconocido' 
     }
   }
 }

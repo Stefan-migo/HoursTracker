@@ -1,9 +1,15 @@
 import { createClient } from '@/lib/supabase/server'
 import { supabaseAdmin } from '@/lib/supabase/admin'
 import { NextResponse } from 'next/server'
+import { Resend } from 'resend'
+import { getInviteEmailHtml } from '@/lib/email/templates/invite'
 
 function generateInviteToken(email: string): string {
   return Buffer.from(`${email}:${Date.now()}`).toString('base64url')
+}
+
+function generateTempPassword(): string {
+  return Math.random().toString(36).slice(2) + Math.random().toString(36).slice(2)
 }
 
 export async function POST(request: Request) {
@@ -42,11 +48,16 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Empleado no encontrado' }, { status: 404 })
     }
 
-    if (!employee.email && method === 'email') {
+    if (!employee.email) {
       return NextResponse.json({ 
         error: 'El empleado no tiene email registrado' 
       }, { status: 400 })
     }
+
+    const normalizedEmail = employee.email.toLowerCase()
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://hours-tracker-three.vercel.app'
+    const inviteToken = generateInviteToken(normalizedEmail)
+    const inviteUrl = `${appUrl}/login?invite=${inviteToken}&email=${encodeURIComponent(normalizedEmail)}`
 
     const { data: authUser } = await supabaseAdmin.auth.admin.getUserById(employeeId)
     
@@ -68,32 +79,35 @@ export async function POST(request: Request) {
       }
     }
 
-    const targetEmail = employee.email || `pending-${Date.now()}@placeholder.local`
-    
-    const { data: inviteData, error: inviteError } = await supabaseAdmin.auth.admin.inviteUserByEmail(
-      targetEmail,
-      { data: { full_name: employee.full_name } }
-    )
-    
-    if (inviteError) {
-      console.error('Error sending Supabase invite:', inviteError)
+    const tempPassword = generateTempPassword()
+
+    const { data: newUser, error: createError } = await supabaseAdmin.auth.admin.createUser({
+      email: normalizedEmail,
+      email_confirm: true,
+      user_metadata: { full_name: employee.full_name },
+      password: tempPassword,
+    })
+
+    if (createError) {
+      console.error('Error creating user:', createError)
+      if (createError.message.includes('already')) {
+        return NextResponse.json({ 
+          error: 'El usuario ya existe' 
+        }, { status: 400 })
+      }
       return NextResponse.json({ 
-        error: `Error al crear invitación: ${inviteError.message}`,
-      }, { status: 500 })
-    }
-    
-    if (!inviteData.user) {
-      return NextResponse.json({ 
-        error: 'No se pudo crear la invitación',
+        error: `Error al crear usuario: ${createError.message}` 
       }, { status: 500 })
     }
 
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
-    const inviteToken = generateInviteToken(targetEmail)
-    const inviteUrl = `${appUrl}/login?invite=${inviteToken}&email=${encodeURIComponent(targetEmail)}`
+    if (!newUser.user) {
+      return NextResponse.json({ 
+        error: 'No se pudo crear el usuario' 
+      }, { status: 500 })
+    }
 
-    const newUserId = inviteData.user.id
-    
+    const newUserId = newUser.user.id
+
     if (employee.email?.includes('placeholder.local') || !employee.email) {
       await supabaseAdmin
         .from('profiles')
@@ -108,6 +122,20 @@ export async function POST(request: Request) {
         .update({ invitation_status: 'pending' })
         .eq('id', employeeId)
     }
+
+    if (method === 'email') {
+      try {
+        const resend = new Resend(process.env.RESEND_API_KEY)
+        await resend.emails.send({
+          from: process.env.EMAIL_FROM || 'onboarding@resend.dev',
+          to: normalizedEmail,
+          subject: 'Invitación a HoursTracker - Crea tu contraseña',
+          html: getInviteEmailHtml(employee.full_name, inviteUrl),
+        })
+      } catch (emailErr) {
+        console.error('Error sending email:', emailErr)
+      }
+    }
     
     return NextResponse.json({
       success: true,
@@ -115,7 +143,7 @@ export async function POST(request: Request) {
         ? 'Link generado. Compártelo por WhatsApp.'
         : 'Invitación enviada.',
       invitation_status: 'pending',
-      invite_url: inviteUrl,
+      invite_url: method === 'whatsapp' ? inviteUrl : undefined,
       method
     })
   } catch (error) {

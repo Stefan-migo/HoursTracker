@@ -18,7 +18,8 @@ import {
   Trash2, 
   Shield, 
   Key,
-  Mail
+  Mail,
+  MessageCircle
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { Spinner } from '@/components/ui/spinner'
@@ -314,24 +315,29 @@ export default function EmployeesPage() {
   }
 
   // Send invitation
-  async function handleSendInvitation() {
+  async function sendInvitation(sendMethod: 'email' | 'whatsapp') {
     if (!editingEmployee) return
 
     setActionLoading('inviting')
     try {
-      const res = await fetch('/api/admin/workers/bulk', {
+      const res = await fetch('/api/admin/workers/send-invitation', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          ids: [editingEmployee.id],
-          action: 'send_invitation',
+          employeeId: editingEmployee.id,
+          method: sendMethod,
         }),
       })
 
       const data = await res.json()
 
       if (res.ok) {
-        toast.success(data.message || 'Invitación enviada')
+        if (sendMethod === 'whatsapp' && data.invite_url) {
+          await navigator.clipboard.writeText(data.invite_url)
+          toast.success('Link copiado. Compártelo por WhatsApp!')
+        } else {
+          toast.success(data.message || 'Invitación enviada')
+        }
         await fetchEmployees()
       } else {
         toast.error(data.error || 'Error al enviar invitación')
@@ -342,6 +348,9 @@ export default function EmployeesPage() {
       setActionLoading(null)
     }
   }
+
+  const handleSendInvitation = () => sendInvitation('email')
+  const handleSendWhatsApp = () => sendInvitation('whatsapp')
 
   // Open edit modal
   function openEditModal(employee: Employee) {
@@ -759,16 +768,28 @@ export default function EmployeesPage() {
                   </>
                 ) : (
                   <>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={handleSendInvitation}
-                      disabled={actionLoading === 'inviting'}
-                      className="w-full"
-                    >
-                      <Mail className="h-4 w-4 mr-2" />
-                      {actionLoading === 'inviting' ? 'Enviando...' : 'Enviar Invitación'}
-                    </Button>
+                    <div className="flex gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={handleSendInvitation}
+                        disabled={actionLoading === 'inviting'}
+                        className="flex-1"
+                      >
+                        <Mail className="h-4 w-4 mr-2" />
+                        {actionLoading === 'inviting' ? 'Enviando...' : 'Email'}
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={handleSendWhatsApp}
+                        disabled={actionLoading === 'inviting'}
+                        className="flex-1"
+                      >
+                        <MessageCircle className="h-4 w-4 mr-2" />
+                        WhatsApp
+                      </Button>
+                    </div>
                     <p className="text-xs text-foreground-secondary mt-1 text-center">
                       El trabajador aún no ha creado su cuenta
                     </p>

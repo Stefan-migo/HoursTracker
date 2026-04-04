@@ -2,6 +2,10 @@ import { createClient } from '@/lib/supabase/server'
 import { supabaseAdmin } from '@/lib/supabase/admin'
 import { NextResponse } from 'next/server'
 
+function generateInviteToken(email: string): string {
+  return Buffer.from(`${email}:${Date.now()}`).toString('base64url')
+}
+
 export async function POST(request: Request) {
   const supabase = await createClient()
 
@@ -22,7 +26,7 @@ export async function POST(request: Request) {
 
   try {
     const body = await request.json()
-    const { employeeId } = body
+    const { employeeId, method = 'email' } = body
 
     if (!employeeId) {
       return NextResponse.json({ error: 'ID de empleado requerido' }, { status: 400 })
@@ -38,13 +42,13 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Empleado no encontrado' }, { status: 404 })
     }
 
-    if (!employee.email) {
+    if (!employee.email && method === 'email') {
       return NextResponse.json({ 
-        error: 'El empleado no tiene email registrado. Edita el perfil primero para agregar un email.' 
+        error: 'El empleado no tiene email registrado' 
       }, { status: 400 })
     }
 
-    const { data: authUser, error: getUserError } = await supabaseAdmin.auth.admin.getUserById(employeeId)
+    const { data: authUser } = await supabaseAdmin.auth.admin.getUserById(employeeId)
     
     if (authUser?.user) {
       const isPlaceholder = authUser.user.email?.includes('placeholder.local')
@@ -56,28 +60,25 @@ export async function POST(request: Request) {
         }, { status: 400 })
       }
       
-      console.log('Deleting placeholder user and sending invite via Supabase to:', employee.email)
-      
       const { error: deleteError } = await supabaseAdmin.auth.admin.deleteUser(employeeId)
       if (deleteError) {
-        console.error('Error deleting placeholder user:', deleteError)
         return NextResponse.json({ 
           error: `No se pudo actualizar el usuario: ${deleteError.message}`,
         }, { status: 500 })
       }
     }
 
-    console.log('Sending Supabase invite to:', employee.email)
+    const targetEmail = employee.email || `pending-${Date.now()}@placeholder.local`
     
     const { data: inviteData, error: inviteError } = await supabaseAdmin.auth.admin.inviteUserByEmail(
-      employee.email,
+      targetEmail,
       { data: { full_name: employee.full_name } }
     )
     
     if (inviteError) {
       console.error('Error sending Supabase invite:', inviteError)
       return NextResponse.json({ 
-        error: `Error al enviar invitación: ${inviteError.message}`,
+        error: `Error al crear invitación: ${inviteError.message}`,
       }, { status: 500 })
     }
     
@@ -86,12 +87,18 @@ export async function POST(request: Request) {
         error: 'No se pudo crear la invitación',
       }, { status: 500 })
     }
+
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
+    const inviteToken = generateInviteToken(targetEmail)
+    const inviteUrl = `${appUrl}/login?invite=${inviteToken}&email=${encodeURIComponent(targetEmail)}`
+
+    const newUserId = inviteData.user.id
     
-    if (authUser?.user?.email?.includes('placeholder.local')) {
+    if (employee.email?.includes('placeholder.local') || !employee.email) {
       await supabaseAdmin
         .from('profiles')
         .update({ 
-          id: inviteData.user.id,
+          id: newUserId,
           invitation_status: 'pending'
         })
         .eq('id', employeeId)
@@ -104,9 +111,12 @@ export async function POST(request: Request) {
     
     return NextResponse.json({
       success: true,
-      message: 'Invitación enviada. El empleado recibirá un correo para crear su contraseña.',
+      message: method === 'whatsapp' 
+        ? 'Link generado. Compártelo por WhatsApp.'
+        : 'Invitación enviada.',
       invitation_status: 'pending',
-      email_sent: true
+      invite_url: inviteUrl,
+      method
     })
   } catch (error) {
     console.error('Error sending invitation:', error)

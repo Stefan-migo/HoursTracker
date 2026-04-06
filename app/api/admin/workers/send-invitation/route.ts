@@ -64,18 +64,31 @@ export async function POST(request: Request) {
     if (authUser?.user) {
       const isPlaceholder = authUser.user.email?.includes('placeholder.local')
       
-      if (!isPlaceholder) {
-        return NextResponse.json({ 
-          error: 'El empleado ya tiene una cuenta activa',
-          invitation_status: 'active'
-        }, { status: 400 })
-      }
-      
-      const { error: deleteError } = await supabaseAdmin.auth.admin.deleteUser(employeeId)
-      if (deleteError) {
-        return NextResponse.json({ 
-          error: `No se pudo actualizar el usuario: ${deleteError.message}`,
-        }, { status: 500 })
+      if (isPlaceholder) {
+        // Es usuario placeholder - borrar y crear nuevo
+        const { error: deleteError } = await supabaseAdmin.auth.admin.deleteUser(employeeId)
+        if (deleteError) {
+          return NextResponse.json({ 
+            error: `No se pudo actualizar el usuario: ${deleteError.message}`,
+          }, { status: 500 })
+        }
+      } else {
+        // El usuario ya tiene cuenta activa con email real
+        // Solo marcar como pending y retornar el link de invitación
+        await supabase
+          .from('profiles')
+          .update({ invitation_status: 'pending' })
+          .eq('id', employeeId)
+        
+        return NextResponse.json({
+          success: true,
+          message: method === 'whatsapp' 
+            ? 'Link generado. Compártelo por WhatsApp.'
+            : 'Invitación enviada.',
+          invitation_status: 'pending',
+          invite_url: method === 'whatsapp' ? inviteUrl : undefined,
+          method
+        })
       }
     }
 

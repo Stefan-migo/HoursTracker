@@ -128,9 +128,10 @@ export async function PUT(request: Request) {
             }, { status: 400 })
           }
           
-          // Actualizar email en auth.users
+          // Actualizar email en auth.users y confirmar email
           await supabaseAdmin.auth.admin.updateUserById(id, {
-            email: email.toLowerCase()
+            email: email.toLowerCase(),
+            email_confirm: true
           })
         }
       } else {

@@ -74,7 +74,14 @@ export async function POST(request: Request) {
         }
       } else {
         // El usuario ya tiene cuenta activa con email real
-        // Solo marcar como pending y retornar el link de invitación
+        // Verificar si el email está confirmado, si no, confirmar
+        if (!authUser.user.email_confirmed_at) {
+          await supabaseAdmin.auth.admin.updateUserById(employeeId, {
+            email_confirm: true
+          })
+        }
+        
+        // Marcar como pending y retornar el link de invitación
         await supabase
           .from('profiles')
           .update({ invitation_status: 'pending' })

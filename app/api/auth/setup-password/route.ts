@@ -90,14 +90,15 @@ export async function POST(request: Request) {
     }
 
     // Update profile invitation status
-    await supabase
+    await supabaseAdmin
       .from('profiles')
       .update({ invitation_status: 'active' })
       .eq('id', userId)
 
     // Try to sign in
+    const supabaseAuth = await createClient()
     if (userEmail) {
-      const { data, error: signInError } = await supabase.auth.signInWithPassword({
+      const { data, error: signInError } = await supabaseAuth.auth.signInWithPassword({
         email: userEmail,
         password,
       })

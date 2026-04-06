@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
+import { supabaseAdmin } from '@/lib/supabase/admin'
 import { NextResponse } from 'next/server'
 import { z } from 'zod'
 
@@ -106,6 +107,46 @@ export async function PUT(request: Request) {
     if (role !== undefined) updateData.role = role
     if (is_active !== undefined) updateData.is_active = is_active
     if (include_in_dashboard !== undefined) updateData.include_in_dashboard = include_in_dashboard
+
+    // Validar y actualizar email en auth.users si es necesario
+    if (email !== undefined) {
+      const { data: existingUser } = await supabaseAdmin.auth.admin.getUserById(id)
+      
+      if (existingUser?.user) {
+        const isPlaceholder = existingUser.user.email?.includes('placeholder.local')
+        
+        if (isPlaceholder) {
+          // Verificar que el nuevo email no exista en auth
+          const { data: usersList } = await supabaseAdmin.auth.admin.listUsers()
+          const emailExists = usersList?.users.some(u => 
+            u.email?.toLowerCase() === email.toLowerCase() && u.id !== id
+          )
+          
+          if (emailExists) {
+            return NextResponse.json({ 
+              error: 'El email ya está en uso por otro usuario' 
+            }, { status: 400 })
+          }
+          
+          // Actualizar email en auth.users
+          await supabaseAdmin.auth.admin.updateUserById(id, {
+            email: email.toLowerCase()
+          })
+        }
+      } else {
+        // No existe en auth - verificar si el email ya existe
+        const { data: usersList } = await supabaseAdmin.auth.admin.listUsers()
+        const emailExists = usersList?.users.some(u => 
+          u.email?.toLowerCase() === email.toLowerCase()
+        )
+        
+        if (emailExists) {
+          return NextResponse.json({ 
+            error: 'El email ya está en uso por otro usuario' 
+          }, { status: 400 })
+        }
+      }
+    }
 
     const { data, error } = await supabase
       .from('profiles')
